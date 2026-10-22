@@ -1,0 +1,24 @@
+{
+  "slot": "MICROGAME 06",
+  "name": "THE VALLEY OF ASHES",
+  "blurb": "Steer Gatsby's yellow car into Myrtle Wilson. The accelerator is already down.",
+  "command": "STEER INTO HER!",
+  "how": "Auto-accelerate · move your mouse left/right to steer · a constant wander shakes the wheel",
+  "duration": 16,
+  "flavor": {
+    "win": {
+      "kicker": "CHAPTER VII · THE VALLEY OF ASHES",
+      "title": "THE YELLOW CAR",
+      "body": "The yellow car hits Myrtle Wilson outside her husband's garage. The road falls silent; by morning the story will have a name, and Gatsby will let them say it was his. {speedLine}",
+      "quote": "Her voice is full of money.",
+      "cite": "F. Scott Fitzgerald, The Great Gatsby"
+    },
+    "lose": {
+      "kicker": "CHAPTER VII · THE VALLEY OF ASHES",
+      "title": "SHE STEPPED BACK",
+      "body": "Myrtle Wilson reaches the far side of the road. The yellow car rushes past; the moment is gone, and the road runs on toward East Egg. {speedLine}",
+      "quote": "There are only the pursued, the pursuing, the busy and the tired.",
+      "cite": "F. Scott Fitzgerald, The Great Gatsby"
+    }
+  }
+}

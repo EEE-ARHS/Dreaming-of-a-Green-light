@@ -1,0 +1,161 @@
+import {
+  BoxGeometry, CapsuleGeometry, CylinderGeometry, Mesh, MeshStandardMaterial, Quaternion, Scene,
+  SphereGeometry, TorusGeometry, Vector3,
+} from "three";
+import { ArcadePhysics, PhysicsAggregate, PhysicsMotionType, PhysicsShapeType, type PhysicsMaterialOptions } from "./physics";
+import { Physics6DoFConstraint } from "./three-compat";
+
+type ShapeKind = "box" | "capsule" | "sphere";
+type PartMaterial = "dress" | "skin" | "hair" | "shoe" | "pearl";
+interface JointLimits { twist: [number, number]; pitch: [number, number]; roll: [number, number]; }
+interface PartDef { name: string; kind: ShapeKind; pos: [number, number, number]; size?: [number, number, number]; radius?: number; length?: number; mass: number; material: PartMaterial; }
+interface Part { def: PartDef; mesh: Mesh; aggregate: PhysicsAggregate; body: PhysicsAggregate["body"]; restPos: Vector3; restRot: Quaternion; }
+interface JointDef { parent: string; child: string; pivot: [number, number, number]; limits: JointLimits; }
+const Y_AXIS = new Vector3(0, 1, 0), X_AXIS = new Vector3(1, 0, 0), ZERO: [number, number] = [0, 0];
+const PART_DEFS: PartDef[] = [
+  { name: "pelvis", kind: "box", pos: [0, 0.98, 0], size: [0.3, 0.2, 0.22], mass: 9, material: "dress" },
+  { name: "torso", kind: "box", pos: [0, 1.22, 0], size: [0.36, 0.4, 0.23], mass: 13, material: "dress" },
+  { name: "head", kind: "sphere", pos: [0, 1.5, 0.005], radius: 0.115, mass: 4, material: "skin" },
+  { name: "armUL", kind: "capsule", pos: [-0.245, 1.235, 0], radius: 0.052, length: 0.3, mass: 2.4, material: "dress" },
+  { name: "armFL", kind: "capsule", pos: [-0.245, 0.955, 0], radius: 0.045, length: 0.27, mass: 1.8, material: "skin" },
+  { name: "armUR", kind: "capsule", pos: [0.245, 1.235, 0], radius: 0.052, length: 0.3, mass: 2.4, material: "dress" },
+  { name: "armFR", kind: "capsule", pos: [0.245, 0.955, 0], radius: 0.045, length: 0.27, mass: 1.8, material: "skin" },
+  { name: "thighL", kind: "capsule", pos: [-0.095, 0.705, 0], radius: 0.075, length: 0.4, mass: 6, material: "skin" },
+  { name: "shinL", kind: "capsule", pos: [-0.095, 0.355, 0], radius: 0.058, length: 0.36, mass: 4, material: "skin" },
+  { name: "footL", kind: "box", pos: [-0.095, 0.1, 0.055], size: [0.11, 0.1, 0.24], mass: 1.2, material: "shoe" },
+  { name: "thighR", kind: "capsule", pos: [0.095, 0.705, 0], radius: 0.075, length: 0.4, mass: 6, material: "skin" },
+  { name: "shinR", kind: "capsule", pos: [0.095, 0.355, 0], radius: 0.058, length: 0.36, mass: 4, material: "skin" },
+  { name: "footR", kind: "box", pos: [0.095, 0.1, 0.055], size: [0.11, 0.1, 0.24], mass: 1.2, material: "shoe" },
+];
+const JOINT_DEFS: JointDef[] = [
+  { parent: "pelvis", child: "torso", pivot: [0, 1.045, 0], limits: { twist: [-0.32, 0.32], pitch: [-0.28, 0.32], roll: [-0.26, 0.26] } },
+  { parent: "torso", child: "head", pivot: [0, 1.4, 0], limits: { twist: [-0.5, 0.5], pitch: [-0.5, 0.5], roll: [-0.5, 0.5] } },
+  { parent: "torso", child: "armUL", pivot: [-0.215, 1.38, 0], limits: { twist: [-1.2, 1.2], pitch: [-1.35, 1.35], roll: [-1.2, 1.2] } },
+  { parent: "armUL", child: "armFL", pivot: [-0.245, 1.085, 0], limits: { twist: ZERO, pitch: [0.02, 2.1], roll: ZERO } },
+  { parent: "torso", child: "armUR", pivot: [0.215, 1.38, 0], limits: { twist: [-1.2, 1.2], pitch: [-1.35, 1.35], roll: [-1.2, 1.2] } },
+  { parent: "armUR", child: "armFR", pivot: [0.245, 1.085, 0], limits: { twist: ZERO, pitch: [0.02, 2.1], roll: ZERO } },
+  { parent: "pelvis", child: "thighL", pivot: [-0.095, 0.9, 0], limits: { twist: [-0.3, 0.3], pitch: [-1.2, 0.55], roll: [-0.34, 0.34] } },
+  { parent: "thighL", child: "shinL", pivot: [-0.095, 0.51, 0], limits: { twist: ZERO, pitch: [-2.2, 0.03], roll: ZERO } },
+  { parent: "shinL", child: "footL", pivot: [-0.095, 0.175, 0], limits: { twist: ZERO, pitch: [-0.45, 0.5], roll: ZERO } },
+  { parent: "pelvis", child: "thighR", pivot: [0.095, 0.9, 0], limits: { twist: [-0.3, 0.3], pitch: [-1.2, 0.55], roll: [-0.34, 0.34] } },
+  { parent: "thighR", child: "shinR", pivot: [0.095, 0.51, 0], limits: { twist: ZERO, pitch: [-2.2, 0.03], roll: ZERO } },
+  { parent: "shinR", child: "footR", pivot: [0.095, 0.175, 0], limits: { twist: ZERO, pitch: [-0.45, 0.5], roll: ZERO } },
+];
+export type MyrtleMode = "idle" | "crossing" | "waving" | "ragdoll";
+export class Myrtle {
+  readonly parts: Part[] = [];
+  readonly joints: Physics6DoFConstraint[] = [];
+  readonly startPosition = new Vector3(8.3, 0, 148.5);
+  readonly position = new Vector3(8.3, 0, 148.5);
+  readonly root = new Vector3(8.3, 0, 148.5);
+  yaw = -Math.PI / 2; mode: MyrtleMode = "idle"; walkPhase = 0; walkBlend = 0; waveBlend = 0;
+  private readonly partMap = new Map<string, Part>();
+  private readonly materials: Record<PartMaterial, MeshStandardMaterial>;
+  constructor(private readonly scene: Scene, private readonly physics: ArcadePhysics) {
+    const make = (name: string, hex: string, metalness = 0.06, emissive = "#000000") => new MeshStandardMaterial({ name, color: hex, metalness, roughness: 0.62, emissive });
+    this.materials = { dress: make("myrtleDress", "#6a2531", 0.12, "#150609"), skin: make("myrtleSkin", "#b98d70", 0.08, "#1a100b"), hair: make("myrtleHair", "#17131a", 0.2, "#050407"), shoe: make("myrtleShoe", "#141114", 0.3, "#030303"), pearl: make("myrtlePearl", "#d9d3c2", 0.6, "#2a2820") };
+    for (const def of PART_DEFS) { const part = this.createPart(def); this.parts.push(part); this.partMap.set(def.name, part); }
+    for (const def of JOINT_DEFS) this.createJoint(def);
+    this.pose(0);
+  }
+  private createPart(def: PartDef): Part {
+    let geometry: BoxGeometry | SphereGeometry | CapsuleGeometry;
+    let shape: "box" | "capsule" | "sphere";
+    const options: PhysicsMaterialOptions = { mass: def.mass, friction: 0.75, restitution: 0.05 };
+    if (def.kind === "box" && def.size) { geometry = new BoxGeometry(...def.size); shape = PhysicsShapeType.BOX; options.extents = new Vector3(...def.size); }
+    else if (def.kind === "capsule" && def.radius && def.length) { geometry = new CapsuleGeometry(def.radius, def.length, 4, 10); shape = PhysicsShapeType.CAPSULE; const half = def.length / 2 - def.radius; options.radius = def.radius; options.pointA = new Vector3(0, -half, 0); options.pointB = new Vector3(0, half, 0); }
+    else { const radius = def.radius ?? 0.1; geometry = new SphereGeometry(radius, 16, 12); shape = PhysicsShapeType.SPHERE; options.radius = radius; }
+    const partMesh = new Mesh(geometry, this.materials[def.material]); partMesh.name = def.name; partMesh.position.set(...def.pos); partMesh.castShadow = true; partMesh.receiveShadow = true; this.scene.add(partMesh);
+    const aggregate = new PhysicsAggregate(partMesh, shape, options, this.physics);
+    const part: Part = { def, mesh: partMesh, aggregate, body: aggregate.body, restPos: new Vector3(...def.pos), restRot: new Quaternion() };
+    this.addDecoration(part, def);
+    return part;
+  }
+  private addDecoration(part: Part, def: PartDef): void {
+    const add = (geometry: BoxGeometry | SphereGeometry | CylinderGeometry | TorusGeometry, mat: MeshStandardMaterial, pos: [number, number, number]) => { const object = new Mesh(geometry, mat); object.position.set(...pos); object.castShadow = true; part.mesh.add(object); return object; };
+    if (def.name === "pelvis") {
+      const skirt = add(new CylinderGeometry(0.18, 0.34, 0.62, 18), this.materials.dress, [0, -0.16, 0]); skirt.name = "myrtleSkirt";
+      const hem = add(new TorusGeometry(0.31, 0.0225, 8, 20), this.materials.dress, [0, -0.47, 0]); hem.name = "myrtleHem";
+    }
+    if (def.name === "torso") {
+      const collar = add(new TorusGeometry(0.1, 0.03, 8, 16), this.materials.pearl, [0, 0.16, 0]); collar.rotation.x = Math.PI / 2;
+      add(new CylinderGeometry(0.05, 0.05, 0.14, 10), this.materials.skin, [0, 0.22, 0]);
+    }
+    if (def.name === "head") {
+      const hair = add(new SphereGeometry(0.1225, 16, 10), this.materials.hair, [0, 0.018, -0.012]); hair.scale.set(1.02, 0.92, 1.04);
+      add(new CylinderGeometry(0.135, 0.135, 0.018, 20), this.materials.hair, [0, 0.08, -0.005]);
+    }
+    if (def.name === "armFL" || def.name === "armFR") add(new SphereGeometry(0.0425, 8, 6), this.materials.skin, [0, -0.135, 0]);
+    if (def.name === "footL" || def.name === "footR") add(new BoxGeometry(0.06, 0.08, 0.06), this.materials.shoe, [0, -0.05, -0.08]);
+  }
+  private createJoint(def: JointDef): void {
+    const parent = this.partMap.get(def.parent), child = this.partMap.get(def.child);
+    if (!parent || !child) throw new Error(`Unknown ragdoll joint ${def.parent} -> ${def.child}`);
+    const pivot = new Vector3(...def.pivot);
+    const constraint = new Physics6DoFConstraint({ pivotA: pivot.clone().sub(parent.restPos), pivotB: pivot.clone().sub(child.restPos) }, def.limits, this.scene);
+    this.physics.addConstraint(parent.body, child.body, constraint.options.pivotA, constraint.options.pivotB);
+    this.joints.push(constraint);
+  }
+  startCrossing(): void { if (this.mode === "idle") this.mode = "crossing"; }
+  update(dt: number, _playerZ: number): void {
+    if (this.mode === "ragdoll") return;
+    this.walkBlend += ((this.mode === "crossing" ? 1 : 0) - this.walkBlend) * Math.min(1, dt * 4);
+    this.waveBlend += ((this.mode === "waving" ? 1 : 0) - this.waveBlend) * Math.min(1, dt * 3);
+    if (this.mode === "crossing") { this.position.x -= 2.05 * dt; if (this.position.x <= 1.15) { this.position.x = 1.15; this.mode = "waving"; } this.yaw = -Math.PI / 2; }
+    else if (this.mode === "waving") this.yaw += (-Math.PI / 2 - 0.25 - this.yaw) * Math.min(1, dt * 2);
+    else this.yaw += (-Math.PI / 2 + 0.1 - this.yaw) * Math.min(1, dt * 0.6);
+    this.walkPhase += dt * 6.2 * (0.25 + this.walkBlend); this.position.z = 148.5; this.pose(this.walkPhase);
+  }
+  private pose(phase: number): void {
+    const origin = this.position, bob = Math.sin(phase * 2) * 0.014 * this.walkBlend + Math.sin(phase * 0.7) * 0.004, lean = 0.06 * this.walkBlend;
+    const qYaw = new Quaternion().setFromAxisAngle(Y_AXIS, this.yaw), qLean = new Quaternion().setFromAxisAngle(X_AXIS, lean);
+    const local = (x: number, y: number, z: number, q: Quaternion) => new Vector3(x, y, z).applyQuaternion(q);
+    const pelvisPos = origin.clone().add(new Vector3(0, 0.98 + bob, 0));
+    const torsoRot = qYaw.clone().multiply(qLean), torsoPos = pelvisPos.clone().add(local(0, 0.24, 0, torsoRot));
+    const headRot = qYaw.clone().multiply(new Quaternion().setFromAxisAngle(X_AXIS, lean * 0.5)), headPos = torsoPos.clone().add(local(0, 0.28, 0.005, torsoRot));
+    this.setPart("pelvis", pelvisPos, qYaw); this.setPart("torso", torsoPos, torsoRot); this.setPart("head", headPos, headRot);
+    for (const side of [-1, 1] as const) {
+      const suffix = side < 0 ? "L" : "R", shoulder = torsoPos.clone().add(local(side * 0.215, 0.16, 0, torsoRot));
+      let swing = Math.sin(phase + (side < 0 ? 0 : Math.PI)) * 0.42 * this.walkBlend;
+      if (side > 0 && this.waveBlend > 0.01) swing += (-2.25 + Math.sin(phase * 5) * 0.14) * this.waveBlend;
+      const armRot = qYaw.clone().multiply(new Quaternion().setFromAxisAngle(X_AXIS, swing));
+      const upperPos = shoulder.clone().add(local(0, -0.15, 0, armRot)), elbow = shoulder.clone().add(local(0, -0.3, 0, armRot));
+      const forearmSwing = side > 0 && this.waveBlend > 0.05 ? 0.25 : 0.18 + this.walkBlend * 0.15;
+      const forearmRot = qYaw.clone().multiply(new Quaternion().setFromAxisAngle(X_AXIS, swing + forearmSwing));
+      const lowerPos = elbow.clone().add(local(0, -0.135, 0, forearmRot));
+      this.setPart("armU" + suffix, upperPos, armRot); this.setPart("armF" + suffix, lowerPos, forearmRot);
+    }
+    for (const side of [-1, 1] as const) {
+      const suffix = side < 0 ? "L" : "R", hip = pelvisPos.clone().add(local(side * 0.095, -0.08, 0, qYaw));
+      const legPhase = phase + (side < 0 ? 0 : Math.PI), swing = Math.sin(legPhase) * 0.52 * this.walkBlend;
+      const kneeBend = -Math.max(0, -Math.cos(legPhase)) * 0.85 * this.walkBlend;
+      const thighRot = qYaw.clone().multiply(new Quaternion().setFromAxisAngle(X_AXIS, swing));
+      const thighPos = hip.clone().add(local(0, -0.195, 0, thighRot)), knee = hip.clone().add(local(0, -0.39, 0, thighRot));
+      const shinRot = qYaw.clone().multiply(new Quaternion().setFromAxisAngle(X_AXIS, swing + kneeBend));
+      const shinPos = knee.clone().add(local(0, -0.155, 0, shinRot)), ankle = knee.clone().add(local(0, -0.335, 0, shinRot));
+      const footPos = ankle.clone().add(local(0, -0.075, 0.055, qYaw)), footRot = qYaw.clone().multiply(new Quaternion().setFromAxisAngle(X_AXIS, this.walkBlend * 0.18));
+      this.setPart("thigh" + suffix, thighPos, thighRot); this.setPart("shin" + suffix, shinPos, shinRot); this.setPart("foot" + suffix, footPos, footRot);
+    }
+  }
+  private setPart(name: string, pos: Vector3, rot: Quaternion): void { const part = this.partMap.get(name); if (!part) return; part.mesh.position.copy(pos); part.mesh.quaternion.copy(rot); part.mesh.updateMatrixWorld(true); }
+  activate(carVelocity: Vector3): void {
+    if (this.mode === "ragdoll") return; this.mode = "ragdoll";
+    const impact = new Vector3(this.position.x, 1.1, this.position.z);
+    for (const part of this.parts) { part.body.setLinearVelocity(new Vector3()); part.body.setAngularVelocity(new Vector3()); part.body.setMotionType(PhysicsMotionType.DYNAMIC); }
+    for (const part of this.parts) {
+      const radial = part.mesh.position.clone().sub(impact); radial.y = Math.abs(radial.y) + 0.25; if (radial.lengthSq() > 0.0001) radial.normalize();
+      const shove = carVelocity.clone().multiplyScalar(0.62 + Math.random() * 0.18), jitter = new Vector3((Math.random() - 0.5) * 2.6, 1.1 + Math.random() * 2.2, (Math.random() - 0.5) * 2.6);
+      part.body.setLinearVelocity(shove.add(jitter).addScaledVector(radial, 2.4 + Math.random() * 1.8));
+      part.body.setAngularVelocity(new Vector3((Math.random() - 0.5) * 9, (Math.random() - 0.5) * 9, (Math.random() - 0.5) * 9));
+    }
+  }
+  getHitTestPoints(): Vector3[] { return ["pelvis", "torso", "head", "thighL", "thighR", "shinL", "shinR"].map((name) => this.partMap.get(name)!.mesh.position.clone()); }
+  getCenter(): Vector3 { return this.partMap.get("torso")!.mesh.position.clone().add(this.partMap.get("pelvis")!.mesh.position).multiplyScalar(0.5); }
+  reset(): void {
+    this.mode = "idle"; this.walkPhase = 0; this.walkBlend = 0; this.waveBlend = 0; this.position.copy(this.startPosition); this.yaw = -Math.PI / 2;
+    for (const part of this.parts) { part.body.setLinearVelocity(new Vector3()); part.body.setAngularVelocity(new Vector3()); part.body.setMotionType(PhysicsMotionType.ANIMATED); }
+    this.pose(0);
+  }
+  get bodyCount(): number { return this.parts.length; }
+  get jointCount(): number { return this.joints.length; }
+}
