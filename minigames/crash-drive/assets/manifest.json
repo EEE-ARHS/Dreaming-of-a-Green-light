@@ -4,7 +4,7 @@
   "blurb": "Steer Gatsby's yellow car into Myrtle Wilson. The accelerator is already down.",
   "command": "STEER INTO HER!",
   "how": "Auto-accelerate · move your mouse left/right to steer · a constant wander shakes the wheel",
-  "duration": 16,
+  "duration": 10,
   "flavor": {
     "win": {
       "kicker": "CHAPTER VII · THE VALLEY OF ASHES",

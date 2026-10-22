@@ -3,6 +3,7 @@ import type { GameAudio } from "../audio";
 import type { World } from "../world";
 import type { Car } from "../car";
 import type { Myrtle } from "../ragdoll";
+import type { ArcadePhysics } from "../physics";
 
 export interface MiniGameFlavor {
   kicker: string;
@@ -35,6 +36,7 @@ export interface MiniGameContext {
   scene: Scene;
   engine: WebGLRenderer;
   camera: PerspectiveCamera;
+  physics: ArcadePhysics;
   audio: GameAudio;
   world: World;
   car: Car;

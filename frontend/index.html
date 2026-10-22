@@ -39,6 +39,8 @@
 
       <div id="timerWrap"><div id="timerFill"></div></div>
 
+      <div id="crateCounter" class="crate-counter" role="status" aria-live="polite"></div>
+
       <div id="crosshair" aria-hidden="true"></div>
 
       <footer>
@@ -79,14 +81,13 @@
             <p class="copy dim">Move your mouse across the screen to steer. The wheel never sits still. Or press Enter to begin.</p>
           </div>
 
-          <div class="collection-container">
-            <div class="collection-heading"><span>THE TEN MICROGAMES</span><i></i><span>06 AVAILABLE</span></div>
+          <div class="collection-container">              <div class="collection-heading"><span>THE TEN MICROGAMES</span><i></i><span>02 AVAILABLE</span></div>
             <div class="game-list" id="gameList" aria-label="Select a microgame">
               <button type="button" class="game-card game-card--locked" data-game="game01" disabled aria-disabled="true">
                 <span class="card-no">01 · IN THE WORKS</span><span class="card-name locked-name">????????</span><span class="card-sub">A new chapter is taking shape</span>
               </button>
-              <button type="button" class="game-card game-card--locked" data-game="game02" disabled aria-disabled="true">
-                <span class="card-no">02 · IN THE WORKS</span><span class="card-name locked-name">????????</span><span class="card-sub">A new chapter is taking shape</span>
+              <button type="button" class="game-card game-card--available" data-game="nicksHouse">
+                <span class="card-no">02 · PLAYABLE</span><span class="card-name">NICK'S HOUSE</span><span class="card-sub">Drag the crates out of the little house</span>
               </button>
               <button type="button" class="game-card game-card--locked" data-game="game03" disabled aria-disabled="true">
                 <span class="card-no">03 · IN THE WORKS</span><span class="card-name locked-name">????????</span><span class="card-sub">A new chapter is taking shape</span>

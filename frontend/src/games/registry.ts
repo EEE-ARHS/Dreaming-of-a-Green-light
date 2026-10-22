@@ -1,6 +1,6 @@
 import type { MiniGame, MiniGameContext } from "./types";
 import { CrashDriveGame, id as crashId } from "../../../minigames/crash-drive";
-import { NicksHouseGame, id as nicksId } from "../../../minigames/nicks-house";
+import { NicksHouseGame, id as nicksHouseId } from "../../../minigames/nicks-house";
 import crashManifest from "../../../minigames/crash-drive/assets/manifest.json";
 import nicksManifest from "../../../minigames/nicks-house/assets/manifest.json";
 
@@ -30,11 +30,11 @@ export const MINI_GAMES: MiniGameDef[] = [
     blurb: "An undecided chapter is waiting in the wings.",
     command: "...",
     how: "This Gatsby microgame is not available yet.",
-    duration: 26,
+    duration: 10,
     locked: true,
   },
   {
-    id: "game02",
+    id: nicksHouseId,
     slot: nicksManifest.slot,
     name: nicksManifest.name,
     blurb: nicksManifest.blurb,
@@ -50,7 +50,7 @@ export const MINI_GAMES: MiniGameDef[] = [
     blurb: "An undecided chapter is waiting in the wings.",
     command: "...",
     how: "This Gatsby microgame is not available yet.",
-    duration: 26,
+    duration: 10,
     locked: true,
   },
   {
@@ -60,7 +60,7 @@ export const MINI_GAMES: MiniGameDef[] = [
     blurb: "An undecided chapter is waiting in the wings.",
     command: "...",
     how: "This Gatsby microgame is not available yet.",
-    duration: 26,
+    duration: 10,
     locked: true,
   },
   {
@@ -70,7 +70,7 @@ export const MINI_GAMES: MiniGameDef[] = [
     blurb: "An undecided chapter is waiting in the wings.",
     command: "...",
     how: "This Gatsby microgame is not available yet.",
-    duration: 26,
+    duration: 10,
     locked: true,
   },
   {
@@ -90,7 +90,7 @@ export const MINI_GAMES: MiniGameDef[] = [
     blurb: "An undecided chapter is waiting in the wings.",
     command: "...",
     how: "This Gatsby microgame is not available yet.",
-    duration: 26,
+    duration: 10,
     locked: true,
   },
   {
@@ -100,7 +100,7 @@ export const MINI_GAMES: MiniGameDef[] = [
     blurb: "An undecided chapter is waiting in the wings.",
     command: "...",
     how: "This Gatsby microgame is not available yet.",
-    duration: 26,
+    duration: 10,
     locked: true,
   },
   {
@@ -110,7 +110,7 @@ export const MINI_GAMES: MiniGameDef[] = [
     blurb: "An undecided chapter is waiting in the wings.",
     command: "...",
     how: "This Gatsby microgame is not available yet.",
-    duration: 26,
+    duration: 10,
     locked: true,
   },
   {
@@ -120,7 +120,7 @@ export const MINI_GAMES: MiniGameDef[] = [
     blurb: "An undecided chapter is waiting in the wings.",
     command: "...",
     how: "This Gatsby microgame is not available yet.",
-    duration: 26,
+    duration: 10,
     locked: true,
   },
 ];

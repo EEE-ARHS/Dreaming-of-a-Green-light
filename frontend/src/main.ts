@@ -127,7 +127,7 @@ async function boot(): Promise<void> {
   camera.fov = ENGINE_CONFIG.camera.defaultFov;
   camera.setTarget(new THREE.Vector3(ENGINE_CONFIG.camera.driverTarget.x, ENGINE_CONFIG.camera.driverTarget.y, ENGINE_CONFIG.camera.driverTarget.z));
   ctx = {
-    scene, engine, camera, audio, world, car, myrtle, keys, pointer,
+    scene, engine, camera, physics, audio, world, car, myrtle, keys, pointer,
     dom: { hud, speedValue, gearValue, distanceValue, subtitle, flash, letterbox, titleFlash: (text) => say(text, 1.4, true) },
     onKey: (handler) => { keyListeners.add(handler); return () => { keyListeners.delete(handler); }; },
     say,

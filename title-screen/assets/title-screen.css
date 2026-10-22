@@ -1,6 +1,5 @@
 .title-screen { overflow-y: auto; }
 .title-layout { width: min(1360px,100%); display: grid; grid-template-columns: minmax(0,.92fr) minmax(430px,1.08fr); gap: clamp(28px,4vw,64px); align-items: center; position: relative; }
-.title-layout::before { content: ''; position: absolute; inset: -22px; pointer-events: none; opacity: .14; background: repeating-conic-gradient(from -45deg at 50% 0%,transparent 0 8deg,rgba(215,185,112,.16) 8.3deg 8.8deg,transparent 9deg 16deg); mask-image: linear-gradient(to bottom,#000,transparent 38%); }
 .title-copy { text-align: left; position: relative; z-index: 1; }
 .title-copy h1 { font-size: clamp(50px,6.5vw,82px); }
 .title-copy .subtitle { margin-left: 0; text-indent: 0; }
@@ -24,7 +23,7 @@
 .card-name { font: 600 clamp(12px,1.15vw,15px) var(--serif); letter-spacing: .045em; line-height: 1.15; margin-top: 4px; color: var(--cream); }
 .locked-name { opacity: .65; letter-spacing: .18em; }
 .card-sub { font: 7px/1.35 var(--sans); letter-spacing: .025em; color: rgba(242,231,207,.55); margin-top: 4px; }
-#menuScreen { background: radial-gradient(ellipse at 50% 42%,rgba(18,30,34,.9),rgba(5,7,10,.98) 76%),#05060a; }
+#menuScreen { background: #05060a; }
 #menuScreen::before { content: ''; position: absolute; inset: 14px; pointer-events: none; border: 1px solid rgba(215,185,112,.28); outline: 1px solid rgba(215,185,112,.1); outline-offset: -6px; }
 #menuScreen::after { content: '✦'; position: absolute; left: 50%; top: 18px; transform: translateX(-50%); color: var(--gold); font-size: 12px; background: var(--ink); padding: 0 12px; }
 

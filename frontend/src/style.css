@@ -37,6 +37,8 @@ body { user-select: none; }
 .brand-sub { font-family: var(--sans); font-size: 8px; letter-spacing: .28em; color: rgba(242,231,207,.52); }
   .gauges { display: flex; align-items: center; gap: 16px; background: transparent; border: none; border-radius: 0; padding: 0; backdrop-filter: none; box-shadow: none; }
 #timerWrap { display: flex; justify-content: center; padding: 10px 0 4px; pointer-events: none; }
+.crate-counter { position: fixed; top: 76px; left: 50%; transform: translateX(-50%); font: 9px var(--sans); letter-spacing: .24em; text-transform: uppercase; color: var(--gold-light); opacity: 0; transition: opacity 300ms ease; pointer-events: none; }
+.crate-counter.show { opacity: .82; }
 #timerFill { height: 2px; width: 0%; background: linear-gradient(90deg,#a78642,var(--gold-light) 50%,#e49d61); border-radius: 0; transform-origin: center; box-shadow: 0 0 22px rgba(215,185,112,.42); transition: width .1s linear; }
 .speedo { display: flex; align-items: baseline; gap: 6px; min-width: 90px; }
 #speedValue { font-family: var(--serif); font-variant-numeric: tabular-nums; font-size: clamp(24px,2.4vw,34px); line-height: 1; color: var(--cream); }
