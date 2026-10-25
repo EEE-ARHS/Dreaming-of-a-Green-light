@@ -5,7 +5,7 @@ import * as THREE from "three";
  *
  * The shared ArcadePhysics solver only moves bodies vertically and has no
  * rotation or body-to-body contact, which makes the crates feel like sliding
- * sprites. This keeps the crate simulation local to the microgame: boxes have
+ * sprites. This keeps the crate simulation local to the chapter: boxes have
  * mass, an inertia tensor, angular velocity, friction and restitution, and they
  * collide against each other, the room and the furniture.
  */

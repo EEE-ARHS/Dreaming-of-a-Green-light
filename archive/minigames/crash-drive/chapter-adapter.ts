@@ -1,8 +1,7 @@
-import { PhysicsViewer, Vector3 } from "../../frontend/src/three-compat";
-import type { PhysicsBody } from "../../frontend/src/physics";
-import type { MiniGameContext, MiniGameOutcome } from "../../frontend/src/games/types";
-import { toMph } from "../../frontend/src/games/types";
-import manifest from "./assets/manifest.json";
+import { PhysicsViewer, Vector3 } from "../three-compat";
+import type { PhysicsBody } from "../physics";
+import type { ChapterContext, ChapterFlavor, ChapterOutcome } from "./types";
+import { toMph } from "./types";
 
 export const MYRTLE_Z = 148.5;
 export const FINISH_Z = 176;
@@ -18,23 +17,16 @@ const BEATS: { z: number; text: string; hold: number; done: boolean }[] = [
   { z: 78, text: "Above Wilson's garage, the eyes of Doctor T. J. Eckleburg watch the road.", hold: 3.4, done: false },
 ];
 
-export const id = manifest.slot === "MICROGAME 06" ? "crashDrive" : "crashDrive";
-export const name = manifest.name;
-export const blurb = manifest.blurb;
-export const command = manifest.command;
-export const how = manifest.how;
-export const duration = manifest.duration;
-
-export class CrashDriveGame {
-  readonly id = id;
-  readonly name = name;
-  readonly blurb = blurb;
-  readonly command = command;
-  readonly how = how;
-  readonly duration = duration;
+export class CrashDriveChapter {
+  readonly id = "crashDrive";
+  readonly name = "THE VALLEY OF ASHES";
+  readonly blurb = "Steer Gatsby's yellow car into Myrtle Wilson. The accelerator is already down.";
+  readonly command = "STEER INTO HER!";
+  readonly how = "Automatic acceleration · move your mouse left/right to steer · a constant wander shakes the wheel";
+  readonly duration = 16;
   private timeScaleHint = 1;
   get physicsScale(): number { return this.timeScaleHint; }
-  private readonly ctx: MiniGameContext;
+  private readonly ctx: ChapterContext;
   private phase: RoundPhase = "driving";
   private view: ViewMode = "chase";
   private won = false;
@@ -63,9 +55,9 @@ export class CrashDriveGame {
   private readonly targetDesired = new Vector3();
   private readonly unsubscribes: (() => void)[] = [];
 
-  constructor(ctx: MiniGameContext) {
+  constructor(ctx: ChapterContext) {
     this.ctx = ctx;
-    this.unsubscribes.push(ctx.onKey((key: string) => {
+    this.unsubscribes.push(ctx.onKey((key) => {
       if (this.phase === "driving" && key === "c") this.cycleView();
       if (key === "p") this.toggleColliders();
     }));
@@ -90,7 +82,7 @@ export class CrashDriveGame {
     this.viewer?.dispose(); this.viewer = null;
   }
 
-  outcome(): MiniGameOutcome {
+  outcome(): ChapterOutcome {
     if (this.phase === "impact") return "pending";
     if (this.expired || this.missed) return "lose";
     return this.hit && this.won && this.phase === "complete" ? "win" : "pending";
@@ -101,15 +93,17 @@ export class CrashDriveGame {
   }
   abandon(): void { this.phase = "complete"; this.expired = true; }
 
-  flavor(outcome: "win" | "lose"): { kicker: string; title: string; body: string; quote: string; cite: string } {
+  flavor(outcome: "win" | "lose"): ChapterFlavor {
     const speedLine = this.hit ? `You struck at <b>${this.impactMph} mph</b>.` : `The clock ran out at <b>${Math.round(toMph(this.ctx.car.speed))} mph</b>.`;
-    const flavorText = manifest.flavor[outcome];
+    if (outcome === "win") return {
+      kicker: "CHAPTER VII · THE VALLEY OF ASHES", title: "THE YELLOW CAR",
+      body: "The yellow car hits Myrtle Wilson outside her husband's garage. The road falls silent; by morning the story will have a name, and Gatsby will let them say it was his. " + speedLine,
+      quote: "Her voice is full of money.", cite: "F. Scott Fitzgerald, The Great Gatsby",
+    };
     return {
-      kicker: flavorText.kicker,
-      title: flavorText.title,
-      body: flavorText.body.replace("{speedLine}", speedLine),
-      quote: flavorText.quote,
-      cite: flavorText.cite,
+      kicker: "CHAPTER VII · THE VALLEY OF ASHES", title: "SHE STEPPED BACK",
+      body: "Myrtle Wilson reaches the far side of the road. The yellow car rushes past; the moment is gone, and the road runs on toward East Egg. " + speedLine,
+      quote: "There are only the pursued, the pursuing, the busy and the tired.", cite: "F. Scott Fitzgerald, The Great Gatsby",
     };
   }
   private showCaption(text: string, hold: number): void { this.ctx.dom.subtitle.textContent = text; this.ctx.dom.subtitle.classList.add("show"); this.captionTimer = hold; }
@@ -118,7 +112,6 @@ export class CrashDriveGame {
     if (this.captionTimer > 0) { this.captionQueue.push({ text, hold }); return; }
     this.showCaption(text, hold);
   }
-
   private feedCaptions(dt: number): void {
     if (this.captionTimer > 0) { this.captionTimer -= dt; if (this.captionTimer > 0) return; }
     const next = this.captionQueue.shift();
@@ -137,11 +130,11 @@ export class CrashDriveGame {
   }
   private snapCamera(): void { this.placeCamera(0, true); }
   private placeCamera(dt: number, snap = false): void {
-    const { camera, car } = this.ctx, fwd = car.forward;
+    const { camera, car, myrtle } = this.ctx, fwd = car.forward;
     const right = new Vector3(Math.cos(car.yaw), 0, -Math.sin(car.yaw)), carPos = car.root.position;
     const speedRatio = Math.min(1, Math.abs(car.speed) / 31); let rate = 6;
     if (this.aftermath) {
-      const center = this.ctx.myrtle.getCenter(); this.cameraDesired.copy(center).add(new Vector3(4.6, 1.9, -4.2));
+      const center = myrtle.getCenter(); this.cameraDesired.copy(center).add(new Vector3(4.6, 1.9, -4.2));
       this.targetDesired.copy(center).add(new Vector3(0, 0.15, 0)); camera.fov = 46; rate = 3.4;
     } else if (this.view === "cockpit") {
       this.cameraDesired.copy(carPos).addScaledVector(right, -0.34).add(new Vector3(0, 0.86, 0)).addScaledVector(fwd, -0.12);
@@ -226,7 +219,7 @@ export class CrashDriveGame {
       this.shake *= Math.max(0, 1 - scaled * 2.2);
       if (this.impactElapsed > 3.1) this.phase = "complete";
     } else { this.timeScaleHint = 1; this.shake *= Math.max(0, 1 - scaled * 3.4); }
-    if (this.phase === "driving" && !this.hit && !this.missed && (car.root.position.z > FINISH_Z || (this.crossingStarted && this.ctx.myrtle.position.x < -2))) {
+    if (this.phase === "driving" && !this.hit && !this.missed && (car.root.position.z > FINISH_Z || (this.crossingStarted && myrtle.position.x < -2))) {
       this.missed = true; this.won = false; this.phase = "complete";
       this.say("Myrtle made it across. The yellow car missed its chance.", 3.4, true);
     }

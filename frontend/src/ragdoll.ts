@@ -2,12 +2,11 @@ import {
   BoxGeometry, CapsuleGeometry, CylinderGeometry, Mesh, MeshStandardMaterial, Quaternion, Scene,
   SphereGeometry, TorusGeometry, Vector3,
 } from "three";
-import { ArcadePhysics, PhysicsAggregate, PhysicsMotionType, PhysicsShapeType, type PhysicsMaterialOptions } from "./physics";
-import { Physics6DoFConstraint } from "./three-compat";
+import { HavokPhysics, PhysicsAggregate, PhysicsConstraint, PhysicsMotionType, PhysicsShapeType, type PhysicsJointLimits, type PhysicsMaterialOptions } from "./physics";
 
 type ShapeKind = "box" | "capsule" | "sphere";
 type PartMaterial = "dress" | "skin" | "hair" | "shoe" | "pearl";
-interface JointLimits { twist: [number, number]; pitch: [number, number]; roll: [number, number]; }
+type JointLimits = PhysicsJointLimits;
 interface PartDef { name: string; kind: ShapeKind; pos: [number, number, number]; size?: [number, number, number]; radius?: number; length?: number; mass: number; material: PartMaterial; }
 interface Part { def: PartDef; mesh: Mesh; aggregate: PhysicsAggregate; body: PhysicsAggregate["body"]; restPos: Vector3; restRot: Quaternion; }
 interface JointDef { parent: string; child: string; pivot: [number, number, number]; limits: JointLimits; }
@@ -44,14 +43,14 @@ const JOINT_DEFS: JointDef[] = [
 export type MyrtleMode = "idle" | "crossing" | "waving" | "ragdoll";
 export class Myrtle {
   readonly parts: Part[] = [];
-  readonly joints: Physics6DoFConstraint[] = [];
+  readonly joints: PhysicsConstraint[] = [];
   readonly startPosition = new Vector3(8.3, 0, 148.5);
   readonly position = new Vector3(8.3, 0, 148.5);
   readonly root = new Vector3(8.3, 0, 148.5);
   yaw = -Math.PI / 2; mode: MyrtleMode = "idle"; walkPhase = 0; walkBlend = 0; waveBlend = 0;
   private readonly partMap = new Map<string, Part>();
   private readonly materials: Record<PartMaterial, MeshStandardMaterial>;
-  constructor(private readonly scene: Scene, private readonly physics: ArcadePhysics) {
+  constructor(private readonly scene: Scene, private readonly physics: HavokPhysics) {
     const make = (name: string, hex: string, metalness = 0.06, emissive = "#000000") => new MeshStandardMaterial({ name, color: hex, metalness, roughness: 0.62, emissive });
     this.materials = { dress: make("myrtleDress", "#6a2531", 0.12, "#150609"), skin: make("myrtleSkin", "#b98d70", 0.08, "#1a100b"), hair: make("myrtleHair", "#17131a", 0.2, "#050407"), shoe: make("myrtleShoe", "#141114", 0.3, "#030303"), pearl: make("myrtlePearl", "#d9d3c2", 0.6, "#2a2820") };
     for (const def of PART_DEFS) { const part = this.createPart(def); this.parts.push(part); this.partMap.set(def.name, part); }
@@ -92,8 +91,8 @@ export class Myrtle {
     const parent = this.partMap.get(def.parent), child = this.partMap.get(def.child);
     if (!parent || !child) throw new Error(`Unknown ragdoll joint ${def.parent} -> ${def.child}`);
     const pivot = new Vector3(...def.pivot);
-    const constraint = new Physics6DoFConstraint({ pivotA: pivot.clone().sub(parent.restPos), pivotB: pivot.clone().sub(child.restPos) }, def.limits, this.scene);
-    this.physics.addConstraint(parent.body, child.body, constraint.options.pivotA, constraint.options.pivotB);
+    const constraint = new PhysicsConstraint(this.physics.scene, { pivotA: pivot.clone().sub(parent.restPos), pivotB: pivot.clone().sub(child.restPos) }, def.limits);
+    this.physics.addConstraint(parent.body, child.body, constraint);
     this.joints.push(constraint);
   }
   startCrossing(): void { if (this.mode === "idle") this.mode = "crossing"; }
@@ -137,7 +136,14 @@ export class Myrtle {
       this.setPart("thigh" + suffix, thighPos, thighRot); this.setPart("shin" + suffix, shinPos, shinRot); this.setPart("foot" + suffix, footPos, footRot);
     }
   }
-  private setPart(name: string, pos: Vector3, rot: Quaternion): void { const part = this.partMap.get(name); if (!part) return; part.mesh.position.copy(pos); part.mesh.quaternion.copy(rot); part.mesh.updateMatrixWorld(true); }
+  private setPart(name: string, pos: Vector3, rot: Quaternion): void {
+    const part = this.partMap.get(name);
+    if (!part) return;
+    part.mesh.position.copy(pos);
+    part.mesh.quaternion.copy(rot);
+    part.mesh.updateMatrixWorld(true);
+    if (part.body.motionType === PhysicsMotionType.ANIMATED) part.body.setTransform(pos, rot);
+  }
   activate(carVelocity: Vector3): void {
     if (this.mode === "ragdoll") return; this.mode = "ragdoll";
     const impact = new Vector3(this.position.x, 1.1, this.position.z);
@@ -153,8 +159,11 @@ export class Myrtle {
   getCenter(): Vector3 { return this.partMap.get("torso")!.mesh.position.clone().add(this.partMap.get("pelvis")!.mesh.position).multiplyScalar(0.5); }
   reset(): void {
     this.mode = "idle"; this.walkPhase = 0; this.walkBlend = 0; this.waveBlend = 0; this.position.copy(this.startPosition); this.yaw = -Math.PI / 2;
+    for (const joint of this.joints) joint.dispose();
+    this.joints.length = 0;
     for (const part of this.parts) { part.body.setLinearVelocity(new Vector3()); part.body.setAngularVelocity(new Vector3()); part.body.setMotionType(PhysicsMotionType.ANIMATED); }
     this.pose(0);
+    for (const def of JOINT_DEFS) this.createJoint(def);
   }
   get bodyCount(): number { return this.parts.length; }
   get jointCount(): number { return this.joints.length; }

@@ -6,14 +6,14 @@ import {
   SphereGeometry, SpotLight as ThreeSpotLight, TorusGeometry, Vector3 as ThreeVector3,
   WebGLRenderer, Quaternion as ThreeQuaternion, CylinderGeometry,
 } from "three";
-import { ArcadePhysics, PhysicsAggregate, PhysicsBody, type PhysicsMaterialOptions } from "./physics";
+import { PhysicsAggregate, PhysicsBody, type PhysicsMaterialOptions } from "./physics";
 
 declare module "three" {
   interface Vector3 { copyFrom(value: Vector3): this; addInPlace(value: Vector3): this; scale(factor: number): this; }
   interface PerspectiveCamera { setTarget(target: Vector3): void; }
 }
 
-export { ArcadePhysics, PhysicsAggregate, PhysicsBody };
+export { PhysicsAggregate, PhysicsBody };
 export type { PhysicsMaterialOptions };
 export type Vector3 = ThreeVector3;
 export const Vector3 = Object.assign(ThreeVector3, {

@@ -1,8 +1,8 @@
 import {
-  AdditiveBlending, BoxGeometry, CylinderGeometry, Group, Mesh, MeshBasicMaterial,
-  MeshStandardMaterial, PointLight, Scene, SpotLight, TorusGeometry, Vector3,
+  AdditiveBlending, BoxGeometry, CylinderGeometry, Euler, Group, Mesh, MeshBasicMaterial,
+  MeshStandardMaterial, PointLight, Quaternion, Scene, SpotLight, TorusGeometry, Vector3,
 } from "three";
-import { ArcadePhysics, PhysicsAggregate, PhysicsMotionType, PhysicsShapeType } from "./physics";
+import { HavokPhysics, PhysicsAggregate, PhysicsMotionType, PhysicsShapeType } from "./physics";
 
 export interface CarInput { throttle: number; brake: number; steer: number; handbrake: boolean; }
 export interface Wheel { pivot: Group; spinner: Group; front: boolean; }
@@ -22,7 +22,7 @@ export class Car {
   readonly beams: Mesh[] = [];
   speed = 0; yaw = 0; steer = 0; wheelSpin = 0; crashed = false;
   private readonly fill: PointLight;
-  constructor(scene: Scene, physics: ArcadePhysics) {
+  constructor(scene: Scene, physics: HavokPhysics) {
     this.root = new Group(); this.root.name = "carRoot"; this.root.position.set(0, 0.62, 0); scene.add(this.root);
     const paint = material("gatsbyYellow", "#d8ae2f", "#171002"), paintDark = material("gatsbyYellowDark", "#a9821f", "#100b02");
     const chrome = material("chrome", "#b9bdc2"); chrome.metalness = 0.82; chrome.roughness = 0.22;
@@ -108,7 +108,10 @@ export class Car {
     for (const wheel of this.wheels) { wheel.pivot.rotation.y = wheel.front ? this.steer * 0.5 : 0; wheel.spinner.rotation.x = this.wheelSpin; }
     this.applyTransform(); this.updateLights();
   }
-  private applyTransform(): void { this.root.updateMatrixWorld(true); }
+  private applyTransform(): void {
+    this.root.updateMatrixWorld(true);
+    this.body.body.setTransform(this.root.position, new Quaternion().setFromEuler(new Euler(this.root.rotation.x, this.root.rotation.y, this.root.rotation.z, "YXZ")));
+  }
   updateLights(): void {
     const fwd = this.forward, right = new Vector3(fwd.z, 0, -fwd.x), base = this.root.position.clone().addScaledVector(fwd, 2);
     for (let i = 0; i < this.headlights.length; i++) { const side = i === 0 ? -1 : 1; this.headlights[i].position.copy(base).addScaledVector(right, 0.56 * side).add(new Vector3(0, 0.5, 0)); this.headlights[i].target.position.copy(this.headlights[i].position).add(new Vector3(fwd.x, -0.1, fwd.z)); }

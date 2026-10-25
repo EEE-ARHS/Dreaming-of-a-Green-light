@@ -4,7 +4,7 @@ import {
   Line, LineBasicMaterial, Mesh, MeshBasicMaterial, MeshStandardMaterial, Points, PointsMaterial,
   PlaneGeometry, PointLight, Scene, SphereGeometry, Vector3, type Object3D,
 } from "three";
-import { ArcadePhysics, PhysicsAggregate, PhysicsShapeType } from "./physics";
+import { HavokPhysics, PhysicsAggregate, PhysicsShapeType } from "./physics";
 
 export const ROAD_Z_START = -60;
 export const ROAD_Z_END = 340;
@@ -80,7 +80,7 @@ export interface World {
   dispose: () => void;
 }
 
-export function createWorld(scene: Scene, quality: number, physics: ArcadePhysics): World {
+export function createWorld(scene: Scene, quality: number, physics: HavokPhysics): World {
   scene.background = color("#070a11");
   scene.fog = new FogExp2("#0a0d15", 0.0042);
   scene.add(new HemisphereLight("#8294b2", "#101012", 1.25));

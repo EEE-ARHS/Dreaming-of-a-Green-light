@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import type { MiniGameContext, MiniGameFlavor, MiniGameOutcome } from "../../frontend/src/games/types";
+import type { ChapterContext, ChapterFlavor, ChapterOutcome } from "../../frontend/src/chapters/types";
 import { RigidBox, simulate } from "./crates";
 import manifest from "./assets/manifest.json";
 
@@ -170,7 +170,7 @@ function crateTexture(): THREE.CanvasTexture {
   return texture;
 }
 
-export class NicksHouseGame {
+export class NicksHouseChapter {
   readonly id = id;
   readonly name = name;
   readonly blurb = blurb;
@@ -179,7 +179,7 @@ export class NicksHouseGame {
   readonly duration = duration;
   readonly physicsScale = 1;
 
-  private readonly ctx: MiniGameContext;
+  private readonly ctx: ChapterContext;
   private readonly raycaster = new THREE.Raycaster();
   private readonly pointerNdc = new THREE.Vector2();
   private readonly dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -CARRY_Y);
@@ -206,7 +206,7 @@ export class NicksHouseGame {
   private savedGaugeDisplay = "";
   private counter: HTMLElement | null = null;
 
-  constructor(ctx: MiniGameContext) {
+  constructor(ctx: ChapterContext) {
     this.ctx = ctx;
   }
 
@@ -283,13 +283,13 @@ export class NicksHouseGame {
     this.ctx.say("The clock runs out. The crates stay stacked in the parlor.", 3.4, true);
   }
 
-  outcome(): MiniGameOutcome {
+  outcome(): ChapterOutcome {
     if (this.won) return "win";
     if (this.expired) return "lose";
     return "pending";
   }
 
-  flavor(outcome: "win" | "lose"): MiniGameFlavor {
+  flavor(outcome: "win" | "lose"): ChapterFlavor {
     const text = manifest.flavor[outcome];
     return {
       kicker: text.kicker,

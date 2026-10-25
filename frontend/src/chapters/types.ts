@@ -1,11 +1,8 @@
 import { Vector3, type PerspectiveCamera, type Scene, type WebGLRenderer } from "three";
 import type { GameAudio } from "../audio";
-import type { World } from "../world";
-import type { Car } from "../car";
-import type { Myrtle } from "../ragdoll";
-import type { ArcadePhysics } from "../physics";
+import type { HavokPhysics } from "../physics";
 
-export interface MiniGameFlavor {
+export interface ChapterFlavor {
   kicker: string;
   title: string;
   body: string;
@@ -13,7 +10,7 @@ export interface MiniGameFlavor {
   cite: string;
 }
 
-export type MiniGameOutcome = "win" | "lose" | "pending";
+export type ChapterOutcome = "win" | "lose" | "pending";
 
 /** Mouse-driven steering. Positive steer means game-right. The shell writes
  * the current pointer steer + a constant random wander into this each frame. */
@@ -21,7 +18,7 @@ export interface PointerInput {
   steer: number;
 }
 
-export interface MiniGameDom {
+export interface ChapterDom {
   hud: HTMLElement;
   speedValue: HTMLElement;
   gearValue: HTMLElement;
@@ -32,23 +29,20 @@ export interface MiniGameDom {
   titleFlash: (text: string) => void;
 }
 
-export interface MiniGameContext {
+export interface ChapterContext {
   scene: Scene;
   engine: WebGLRenderer;
   camera: PerspectiveCamera;
-  physics: ArcadePhysics;
+  physics: HavokPhysics;
   audio: GameAudio;
-  world: World;
-  car: Car;
-  myrtle: Myrtle;
   keys: Set<string>;
   pointer: PointerInput;
-  dom: MiniGameDom;
+  dom: ChapterDom;
   onKey: (handler: (key: string) => void) => () => void;
   say: (text: string, hold?: number, priority?: boolean) => void;
 }
 
-export interface MiniGame {
+export interface Chapter {
   readonly id: string;
   readonly name: string;
   readonly blurb: string;
@@ -61,8 +55,8 @@ export interface MiniGame {
   abandon?(): void;
   expire?(): void;
   readonly physicsScale: number;
-  outcome(): MiniGameOutcome;
-  flavor(outcome: "win" | "lose"): MiniGameFlavor;
+  outcome(): ChapterOutcome;
+  flavor(outcome: "win" | "lose"): ChapterFlavor;
   dispose(): void;
 }
 
