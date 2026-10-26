@@ -1,8 +1,0 @@
-.title-layout { display: flex; justify-content: center; align-items: center; text-align: center; }
-.title-copy { display: flex; flex-direction: column; align-items: center; gap: 20px; }
-.title-logo-placeholder img, .title-sub-placeholder img { display: block; max-width: 100%; height: auto; margin: 0 auto; }
-.main-logo { width: min(600px, 80vw); }
-.sub-logo { width: min(400px, 60vw); }
-.main-copy-container { display: flex; flex-direction: column; align-items: center; gap: 12px; }
-.collection-container { display: flex; flex-direction: column; align-items: center; gap: 20px; }
-

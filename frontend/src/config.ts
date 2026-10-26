@@ -10,6 +10,12 @@ export const ENGINE_CONFIG = {
     toneMappingExposure: 1.1,
     antialias: false,
     powerPreference: "high-performance",
+    carGamePostProcessing: {
+      pixelSize: 3,
+      bloomStrength: 2.35,
+      bloomRadius: 0.88,
+      bloomThreshold: 0.18,
+    },
   },
   physics: {
     defaultTimeStep: 1 / 12,

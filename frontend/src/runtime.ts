@@ -9,6 +9,8 @@ import { GameAudio } from "./audio";
 import { CHAPTERS, type ChapterDef } from "./chapters/registry";
 import type { Chapter, ChapterContext, ChapterOutcome, PointerInput } from "./chapters/types";
 import { ENGINE_CONFIG } from "./config";
+import { createScenePostProcessing, type ScenePostProcessing } from "./postprocessing";
+import { disposeObjectTree } from "./scene-resources";
 import {
   hud, speedValue, gearValue, distanceValue, speedGauge, physicsMeta,
   subtitle, flash, letterbox, menuScreen, titleStatus, resultScreen,
@@ -34,6 +36,8 @@ const speedTickerTo = gsap.quickTo(speedTicker, "value", {
 
 let engine: THREE.WebGLRenderer;
 let scene: THREE.Scene;
+let postProcessing: ScenePostProcessing | null = null;
+let postProcessingResize: AbortController | null = null;
 let physics: HavokPhysics;
 let world: World;
 let car: Car;
@@ -77,6 +81,11 @@ async function boot(initialChapterId: string, onReady: () => void): Promise<void
   const selectedDef = CHAPTERS.find((def) => def.id === initialChapterId);
   if (!selectedDef?.create) throw new Error(`Unknown or locked chapter: ${initialChapterId}`);
   const isValley = selectedDef.scene !== "west-egg";
+  postProcessing?.dispose();
+  postProcessing = createScenePostProcessing(engine, scene, camera, isValley);
+  postProcessingResize?.abort();
+  postProcessingResize = new AbortController();
+  window.addEventListener("resize", () => postProcessing?.resize(window.innerWidth, window.innerHeight), { signal: postProcessingResize.signal });
   if (isValley) {
     physics = await HavokPhysics.create();
     if (!runtimeActive) { physics.dispose(); return; }
@@ -349,6 +358,7 @@ function render(now: number, delta: number) {
     feedCaptions(realDt, state);
     captionTimer = state.captionTimer;
   }
+  postProcessing?.render(realDt);
 }
 
 function handleStartupError(error: unknown): void {
@@ -384,6 +394,8 @@ export function startRuntime(state: { gl: THREE.WebGLRenderer; scene: THREE.Scen
       activeChapters.forEach((chapter) => chapter?.dispose());
       playingChapter = null;
       currentChapter = null;
+      postProcessingResize?.abort(); postProcessingResize = null;
+      postProcessing?.dispose(); postProcessing = null;
       world?.dispose();
       car = undefined as unknown as Car;
       myrtle = undefined as unknown as Myrtle;
@@ -397,29 +409,11 @@ export function startRuntime(state: { gl: THREE.WebGLRenderer; scene: THREE.Scen
       }
       sceneEnvironment = [];
       gsap.killTweensOf([camera.position, camera, cameraAim]);
-      const geometries = new Set<THREE.BufferGeometry>();
-      const materials = new Set<THREE.Material>();
-      const textures = new Set<THREE.Texture>();
       for (const child of [...scene.children]) {
-        child.traverse((object) => {
-          const renderable = object as THREE.Mesh;
-          if (renderable.geometry) geometries.add(renderable.geometry);
-          const objectMaterials = Array.isArray(renderable.material)
-            ? renderable.material
-            : renderable.material ? [renderable.material] : [];
-          for (const material of objectMaterials) {
-            materials.add(material);
-            for (const value of Object.values(material)) {
-              if (value instanceof THREE.Texture) textures.add(value);
-            }
-          }
-          if (object instanceof THREE.DirectionalLight) object.shadow.map?.dispose();
-        });
+        if (child instanceof THREE.DirectionalLight) child.shadow.map?.dispose();
+        disposeObjectTree(child);
         scene.remove(child);
       }
-      geometries.forEach((geometry) => geometry.dispose());
-      materials.forEach((material) => material.dispose());
-      textures.forEach((texture) => texture.dispose());
       scene.background = null;
       scene.fog = null;
     },

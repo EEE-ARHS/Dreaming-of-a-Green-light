@@ -1,13 +1,11 @@
-import {
-  BoxGeometry, CapsuleGeometry, CylinderGeometry, Mesh, MeshStandardMaterial, Quaternion, Scene,
-  SphereGeometry, TorusGeometry, Vector3,
-} from "three";
+import { Mesh, MeshStandardMaterial, Quaternion, Scene, Vector3 } from "three";
 import { HavokPhysics, PhysicsAggregate, PhysicsConstraint, PhysicsMotionType, PhysicsShapeType, type PhysicsMaterialOptions } from "./physics";
 import {
   Y_AXIS, X_AXIS,
   type PartMaterial, type PartDef, type JointDef,
   PART_DEFS, JOINT_DEFS
 } from "./ragdoll-constants";
+import { createMyrtlePartMesh } from "./myrtle-model";
 
 type Part = {
   def: PartDef;
@@ -36,15 +34,12 @@ export class Myrtle {
     this.pose(0);
   }
   private createPart(def: PartDef): Part {
-    let geometry: BoxGeometry | SphereGeometry | CapsuleGeometry;
     let shape: "box" | "capsule" | "sphere";
     const options: PhysicsMaterialOptions = { mass: def.mass, friction: 0.75, restitution: 0.05 };
     if (def.kind === "box" && def.size) {
-      geometry = new BoxGeometry(...def.size);
       shape = PhysicsShapeType.BOX;
       options.extents = new Vector3(...def.size);
     } else if (def.kind === "capsule" && def.radius && def.length) {
-      geometry = new CapsuleGeometry(def.radius, def.length, 4, 10);
       shape = PhysicsShapeType.CAPSULE;
       const half = def.length / 2 - def.radius;
       options.radius = def.radius;
@@ -52,37 +47,13 @@ export class Myrtle {
       options.pointB = new Vector3(0, half, 0);
     } else {
       const radius = def.radius ?? 0.1;
-      geometry = new SphereGeometry(radius, 16, 12);
       shape = PhysicsShapeType.SPHERE;
       options.radius = radius;
     }
-    const partMesh = new Mesh(geometry, this.materials[def.material]);
-    partMesh.name = def.name;
-    partMesh.position.set(...def.pos);
-    partMesh.castShadow = true;
-    partMesh.receiveShadow = true;
+    const partMesh = createMyrtlePartMesh(def, this.materials);
     this.scene.add(partMesh);
     const aggregate = new PhysicsAggregate(partMesh, shape, options, this.physics);
-    const part: Part = { def, mesh: partMesh, aggregate, body: aggregate.body, restPos: new Vector3(...def.pos), restRot: new Quaternion() };
-    this.addDecoration(part, def);
-    return part;
-  }
-  private addDecoration(part: Part, def: PartDef): void {
-    const add = (geometry: BoxGeometry | SphereGeometry | CylinderGeometry | TorusGeometry, mat: MeshStandardMaterial, pos: [number, number, number]) => { const object = new Mesh(geometry, mat); object.position.set(...pos); object.castShadow = true; part.mesh.add(object); return object; };
-    if (def.name === "pelvis") {
-      const skirt = add(new CylinderGeometry(0.18, 0.34, 0.62, 18), this.materials.dress, [0, -0.16, 0]); skirt.name = "myrtleSkirt";
-      const hem = add(new TorusGeometry(0.31, 0.0225, 8, 20), this.materials.dress, [0, -0.47, 0]); hem.name = "myrtleHem";
-    }
-    if (def.name === "torso") {
-      const collar = add(new TorusGeometry(0.1, 0.03, 8, 16), this.materials.pearl, [0, 0.16, 0]); collar.rotation.x = Math.PI / 2;
-      add(new CylinderGeometry(0.05, 0.05, 0.14, 10), this.materials.skin, [0, 0.22, 0]);
-    }
-    if (def.name === "head") {
-      const hair = add(new SphereGeometry(0.1225, 16, 10), this.materials.hair, [0, 0.018, -0.012]); hair.scale.set(1.02, 0.92, 1.04);
-      add(new CylinderGeometry(0.135, 0.135, 0.018, 20), this.materials.hair, [0, 0.08, -0.005]);
-    }
-    if (def.name === "armFL" || def.name === "armFR") add(new SphereGeometry(0.0425, 8, 6), this.materials.skin, [0, -0.135, 0]);
-    if (def.name === "footL" || def.name === "footR") add(new BoxGeometry(0.06, 0.08, 0.06), this.materials.shoe, [0, -0.05, -0.08]);
+    return { def, mesh: partMesh, aggregate, body: aggregate.body, restPos: new Vector3(...def.pos), restRot: new Quaternion() };
   }
   private createJoint(def: JointDef): void {
     const parent = this.partMap.get(def.parent), child = this.partMap.get(def.child);

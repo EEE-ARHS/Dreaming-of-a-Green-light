@@ -1,73 +1,18 @@
 import {
-  BackSide, BoxGeometry, BufferGeometry, CanvasTexture, Color, CylinderGeometry,
-  DirectionalLight, DoubleSide, FogExp2, Float32BufferAttribute, Group, HemisphereLight,
-  Line, LineBasicMaterial, Mesh, MeshBasicMaterial, MeshStandardMaterial, Points, PointsMaterial,
+  BackSide, BufferGeometry, DirectionalLight, DoubleSide, FogExp2, Float32BufferAttribute,
+  Group, HemisphereLight, Line, LineBasicMaterial, MeshBasicMaterial, Points, PointsMaterial,
   PlaneGeometry, PointLight, Scene, SphereGeometry, Vector3, type Object3D,
 } from "three";
 import { HavokPhysics, PhysicsAggregate, PhysicsShapeType } from "./physics";
 import { ROAD_Z_START, ROAD_Z_END, ROAD_LENGTH, ROAD_CENTER_Z, ROAD_HALF_WIDTH } from "./world-constants";
+import {
+  worldColor as color, basicMaterial as basic, emissiveBasicMaterial as emissiveBasic,
+  standardMaterial as standard, fleckTexture, textTexture,
+  addWorldMesh as mesh, addWorldBox as addBox, addWorldCylinder as addCylinder, addWorldSphere as addSphere,
+  makeWorldCanvasTexture as makeCanvasTexture,
+} from "./world-assets";
 
-function color(hex: string): Color { return new Color(hex); }
-function basic(hex: string, extra: Partial<ConstructorParameters<typeof MeshBasicMaterial>[0]> = {}) {
-  return new MeshBasicMaterial({ color: hex, ...extra });
-}
-function emissiveBasic(hex: string, emissive: string, extra: Partial<ConstructorParameters<typeof MeshBasicMaterial>[0]> = {}) {
-  const material = new MeshBasicMaterial({ color: hex, ...extra });
-  material.color.add(new Color(emissive));
-  return material;
-}
-function standard(hex: string, extra: Partial<ConstructorParameters<typeof MeshStandardMaterial>[0]> = {}) {
-  return new MeshStandardMaterial({ color: hex, roughness: 0.86, ...extra });
-}
-function makeCanvasTexture(width: number, height: number, paint: (ctx: CanvasRenderingContext2D) => void): CanvasTexture {
-  const canvas = document.createElement("canvas");
-  canvas.width = width; canvas.height = height;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("Could not create a procedural world texture.");
-  paint(ctx);
-  const texture = new CanvasTexture(canvas);
-  texture.colorSpace = "srgb";
-  return texture;
-}
-function fleckTexture(base: string, flecks: number, size = 512): CanvasTexture {
-  return makeCanvasTexture(size, size, (ctx) => {
-    ctx.fillStyle = base; ctx.fillRect(0, 0, size, size);
-    for (let i = 0; i < flecks; i++) {
-      const g = 18 + Math.floor(Math.random() * 46);
-      ctx.fillStyle = `rgba(${g},${g + 2},${g + 6},${0.12 + Math.random() * 0.4})`;
-      const s = Math.random() * 2.4 + 0.4;
-      ctx.fillRect(Math.random() * size, Math.random() * size, s, s);
-    }
-  });
-}
-function textTexture(text: string, width: number, height: number, font: string, fill: string): CanvasTexture {
-  return makeCanvasTexture(1024, Math.round(1024 * height / width), (ctx) => {
-    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-    ctx.fillStyle = fill; ctx.font = font; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText(text, ctx.canvas.width / 2, ctx.canvas.height / 2);
-  });
-}
-function mesh(geometry: BufferGeometry, material: MeshStandardMaterial | MeshBasicMaterial, position: Vector3, parent: Object3D): Mesh {
-  const result = new Mesh(geometry, material);
-  result.position.copy(position); result.castShadow = true; result.receiveShadow = true;
-  parent.add(result);
-  return result;
-}
-function addBox(parent: Object3D, name: string, size: [number, number, number], position: [number, number, number], material: MeshStandardMaterial | MeshBasicMaterial): Mesh {
-  const result = mesh(new BoxGeometry(...size), material, new Vector3(...position), parent);
-  result.name = name;
-  return result;
-}
-function addCylinder(parent: Object3D, name: string, top: number, bottom: number, height: number, position: [number, number, number], material: MeshStandardMaterial | MeshBasicMaterial, segments = 16): Mesh {
-  const result = mesh(new CylinderGeometry(top, bottom, height, segments), material, new Vector3(...position), parent);
-  result.name = name;
-  return result;
-}
-function addSphere(parent: Object3D, name: string, diameter: number, position: [number, number, number], material: MeshStandardMaterial | MeshBasicMaterial, segments = 18): Mesh {
-  const result = mesh(new SphereGeometry(diameter / 2, segments, Math.max(8, Math.floor(segments * 0.65))), material, new Vector3(...position), parent);
-  result.name = name;
-  return result;
-}
+
 
 export interface World {
   update: (dt: number, carPosition: Vector3) => void;

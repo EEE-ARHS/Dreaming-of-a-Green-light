@@ -16,7 +16,10 @@ interface RuntimeCanvasProps {
 }
 
 function RuntimeLoop({ renderFrame }: { renderFrame: RefObject<((now: number, delta: number) => void) | null> }) {
-  useFrame((state, delta) => renderFrame.current?.(state.clock.elapsedTime * 1000, delta), -1);
+  useFrame((state, delta) => {
+    if (renderFrame.current) renderFrame.current(state.clock.elapsedTime * 1000, delta);
+    else state.gl.render(state.scene, state.camera);
+  }, 1);
   return null;
 }
 

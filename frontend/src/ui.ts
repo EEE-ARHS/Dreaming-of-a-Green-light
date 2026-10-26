@@ -6,28 +6,37 @@ function el<T extends HTMLElement>(id: string): T {
   return node as T;
 }
 
-export const hud = el("hud");
-export const speedValue = el("speedValue");
-export const gearValue = el("gearValue");
-export const distanceValue = el("distanceValue");
-export const speedGauge = el("speedGauge");
-export const physicsMeta = el("physicsMeta");
-export const subtitle = el("subtitle");
-export const flash = el("flash");
-export const letterbox = el("letterbox");
-export const menuScreen = el("menuScreen");
-export const titleStatus = el("titleStatus");
-export const resultScreen = el("resultScreen");
-export const resultStamp = el("resultStamp");
-export const endingKicker = el("endingKicker");
-export const endingTitle = el("endingTitle");
-export const endingBody = el("endingBody");
-export const endingQuote = el("endingQuote");
-export const endingCite = el("endingCite");
-export const timerFill = el("timerFill");
-export const lowTimePulse = el("lowTimePulse");
-export const impactFlash = el("impactFlash");
-export const crateCounter = el("crateCounter");
+export const ui = {
+  hud: el<HTMLElement>("hud"),
+  speedValue: el<HTMLElement>("speedValue"),
+  gearValue: el<HTMLElement>("gearValue"),
+  distanceValue: el<HTMLElement>("distanceValue"),
+  speedGauge: el<HTMLElement>("speedGauge"),
+  physicsMeta: el<HTMLElement>("physicsMeta"),
+  subtitle: el<HTMLElement>("subtitle"),
+  flash: el<HTMLElement>("flash"),
+  letterbox: el<HTMLElement>("letterbox"),
+  menuScreen: el<HTMLElement>("menuScreen"),
+  titleStatus: el<HTMLElement>("titleStatus"),
+  resultScreen: el<HTMLElement>("resultScreen"),
+  resultStamp: el<HTMLElement>("resultStamp"),
+  endingKicker: el<HTMLElement>("endingKicker"),
+  endingTitle: el<HTMLElement>("endingTitle"),
+  endingBody: el<HTMLElement>("endingBody"),
+  endingQuote: el<HTMLElement>("endingQuote"),
+  endingCite: el<HTMLElement>("endingCite"),
+  timerFill: el<HTMLElement>("timerFill"),
+  lowTimePulse: el<HTMLElement>("lowTimePulse"),
+  impactFlash: el<HTMLElement>("impactFlash"),
+  crateCounter: el<HTMLElement>("crateCounter"),
+};
+
+export const {
+  hud, speedValue, gearValue, distanceValue, speedGauge, physicsMeta,
+  subtitle, flash, letterbox, menuScreen, titleStatus, resultScreen,
+  resultStamp, endingKicker, endingTitle, endingBody, endingQuote,
+  endingCite, timerFill, lowTimePulse, impactFlash, crateCounter,
+} = ui;
 
 export function uiDuration(seconds: number): number {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0.01 : seconds;

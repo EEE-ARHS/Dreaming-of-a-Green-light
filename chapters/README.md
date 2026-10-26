@@ -31,7 +31,7 @@ The chapter is not playable just because its folder exists. Add it to the active
 - Import the class from `../../../chapters/<chapter-name>`.
 - Import the manifest JSON from `../../../chapters/<chapter-name>/assets/manifest.json`.
 - Add an unlocked `ChapterDef` using manifest fields and `create: (ctx) => new MyChapter(ctx)`.
-- Add or unlock the matching chapter entry in `CHAPTER_OPTIONS` in `frontend/src/main.tsx` so it appears in the expanding-card selector.
+- The chapter selector derives its metadata from the active registry; add the matching `ChapterDef` there to make it appear.
 
 Do not import template code in the registry. Keep unimplemented menu entries locked until they have an implementation.
 

@@ -210,3 +210,14 @@ cite { display: block; margin-top: 16px; font: 8px var(--sans); letter-spacing: 
   #bottombar { justify-content: flex-start; }
   .deco { outline: none; }
 }
+@media (max-height: 560px) {
+  #resultScreen { padding-block: 12px; }
+  .deco { max-height: 96vh; padding: 14px 24px; }
+  .deco .kicker { margin-bottom: 9px; }
+  .deco .deco-rule { margin: 11px 0; }
+  .deco .copy { margin-bottom: 6px; line-height: 1.4; }
+  .deco blockquote { margin-top: 13px; line-height: 1.4; }
+  .deco cite { margin-top: 9px; }
+  .deco .result-stamp { min-height: 36px; margin: 7px auto 0; }
+  .deco .ending-actions button { margin-top: 12px; padding: 11px 22px; }
+}

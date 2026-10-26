@@ -8,7 +8,7 @@ import manifest from "./assets/manifest.json";
 
 const randomBetween = (min: number, max: number): number => min + Math.random() * (max - min);
 
-export const id = manifest.slot === "CHAPTER 06" ? "crashDrive" : "crashDrive";
+export const id = "crashDrive";
 export const name = manifest.name;
 export const blurb = manifest.blurb;
 export const command = manifest.command;

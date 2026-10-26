@@ -7,16 +7,16 @@
   "duration": null,
   "models": {
     "format": "glb or gltf; paths resolve from the frontend public root",
-    "house": null,
-    "car": null,
+    "house": { "path": null, "fit": { "targetSize": [8, 3, 8], "alignBottom": true } },
+    "car": { "path": null, "fit": { "targetSize": [2.1, 1.9, 4.6], "alignBottom": true } },
     "belongings": {
-      "moving-crate": null,
-      "leather-suitcase": null,
-      "reading-lamp": null,
-      "letters": null,
-      "hatbox": null,
-      "picture-frame": null,
-      "keepsakes": null
+      "moving-crate": { "path": null, "fit": { "targetSize": "belonging", "alignBottom": true } },
+      "leather-suitcase": { "path": null, "fit": { "targetSize": "belonging", "alignBottom": true } },
+      "reading-lamp": { "path": null, "fit": { "targetSize": "belonging", "alignBottom": true } },
+      "letters": { "path": null, "fit": { "targetSize": "belonging", "alignBottom": true } },
+      "hatbox": { "path": null, "fit": { "targetSize": "belonging", "alignBottom": true } },
+      "picture-frame": { "path": null, "fit": { "targetSize": "belonging", "alignBottom": true } },
+      "keepsakes": { "path": null, "fit": { "targetSize": "belonging", "alignBottom": true } }
     }
   },
   "flavor": {

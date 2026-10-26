@@ -4,39 +4,22 @@ import { PhysicsAggregate, PhysicsMotionType, PhysicsShapeType, type HavokPhysic
 import { PlayerController } from "../../frontend/src/player-controller";
 import { crateCounter } from "../../frontend/src/ui";
 import manifest from "./assets/manifest.json";
+import { createProceduralBelonging } from "./assets/belongings";
+import { createNickCarModel } from "./assets/car";
+import { disposeChildren, disposeObjectTree, fitModelToTarget, GLTF_MODEL_ASSET_SOURCE, type ModelAssetSource } from "./assets/model-loader";
+import { BELONGING_MODEL_OVERRIDES, CAR_MODEL_OVERRIDE, HOUSE_MODEL_OVERRIDE } from "./assets/models";
 import { buildExterior } from "./exterior";
 import { buildRoom } from "./room";
 import { addStaticCollider as createStaticCollider } from "./physics";
 import {
-  ROOM_HALF, ROOM_HEIGHT, DOOR_HALF, DOOR_HEIGHT, THRESHOLD_Z,
+  ROOM_HALF, DOOR_HALF, DOOR_HEIGHT, THRESHOLD_Z,
   type BelongingSpec, BELONGINGS
 } from "./constants";
-
-/** Optional model override paths in assets/manifest.json. Null/empty uses the blockout. */
-export const MODEL_OVERRIDES = {
-  house: manifest.models?.house ?? null,
-  car: manifest.models?.car ?? null,
-  belongings: (manifest.models?.belongings ?? {}) as Record<string, string | null>,
-} as const;
-
-export interface ModelAssetSource {
-  load(path: string): Promise<THREE.Object3D>;
-}
 
 const ARRIVAL_START_Z = -72;
 const ARRIVAL_PARK_Z = -8.25;
 const ARRIVAL_SPEED = 8.4;
 const ARRIVAL_CAMERA_BLEND_SECONDS = 2;
-
-const DEFAULT_MODEL_ASSET_SOURCE: ModelAssetSource = {
-  load(path) {
-    return new Promise((resolve, reject) => {
-      void import("three/examples/jsm/loaders/GLTFLoader.js").then(({ GLTFLoader }) => {
-        new GLTFLoader().load(path, (gltf) => resolve(gltf.scene), undefined, reject);
-      }).catch(reject);
-    });
-  },
-};
 
 export const id = "nicksHouse";
 export const name = manifest.name;
@@ -107,7 +90,7 @@ export class NicksHouseChapter {
   private savedFov = 50;
   private counter: HTMLElement | null = null;
 
-  constructor(ctx: ChapterContext, modelAssetSource: ModelAssetSource = DEFAULT_MODEL_ASSET_SOURCE) {
+  constructor(ctx: ChapterContext, modelAssetSource: ModelAssetSource = GLTF_MODEL_ASSET_SOURCE) {
     this.ctx = ctx;
     this.modelAssetSource = modelAssetSource;
   }
@@ -240,14 +223,14 @@ export class NicksHouseChapter {
     for (const crate of this.crates) {
       crate.mesh.removeFromParent();
       crate.proxy.removeFromParent();
-      this.disposeObjectTree(crate.mesh);
-      this.disposeObjectTree(crate.proxy);
+      disposeObjectTree(crate.mesh);
+      disposeObjectTree(crate.proxy);
     }
     this.crates = [];
 
     if (this.room) {
       this.ctx.scene.remove(this.room);
-      this.disposeObjectTree(this.room);
+      disposeObjectTree(this.room);
       this.room = null;
       this.houseRoot = null;
     }
@@ -262,13 +245,13 @@ export class NicksHouseChapter {
 
     if (this.modelRoot) {
       this.ctx.scene.remove(this.modelRoot);
-      this.disposeObjectTree(this.modelRoot);
+      disposeObjectTree(this.modelRoot);
       this.modelRoot = null;
       this.carRoot = null;
     }
     if (this.exterior) {
       this.ctx.scene.remove(this.exterior);
-      this.disposeObjectTree(this.exterior);
+      disposeObjectTree(this.exterior);
       this.exterior = null;
     }
     if (this.counter) {
@@ -461,62 +444,23 @@ export class NicksHouseChapter {
     group.position.set(0, 0, ARRIVAL_START_Z);
     this.carRoot = group;
     this.modelRoot.add(group);
-    this.loadOptionalModel(MODEL_OVERRIDES.car, (model) => {
+    this.loadOptionalModel(CAR_MODEL_OVERRIDE.path, (model) => {
       if (this.carRoot !== group) return false;
-      this.disposeChildren(group);
-      this.fitModel(model, new THREE.Vector3(2.1, 1.9, 4.6), true);
+      disposeChildren(group);
+      fitModelToTarget(model, new THREE.Vector3(...CAR_MODEL_OVERRIDE.fit.targetSize), CAR_MODEL_OVERRIDE.fit.alignBottom);
       group.add(model);
       return true;
     });
-    if (MODEL_OVERRIDES.house) this.loadOptionalModel(MODEL_OVERRIDES.house, (model) => {
+    if (HOUSE_MODEL_OVERRIDE.path) this.loadOptionalModel(HOUSE_MODEL_OVERRIDE.path, (model) => {
       if (!this.houseRoot || !this.room) return false;
-      this.fitModel(model, new THREE.Vector3(ROOM_HALF * 2, ROOM_HEIGHT, ROOM_HALF * 2), true);
-      this.disposeChildren(this.room);
+      fitModelToTarget(model, new THREE.Vector3(...HOUSE_MODEL_OVERRIDE.fit.targetSize), HOUSE_MODEL_OVERRIDE.fit.alignBottom);
+      disposeChildren(this.room);
       this.room.add(model);
       this.room.name = "nicksHouseCustomModel";
       return true;
     });
-    const paint = new THREE.MeshStandardMaterial({ color: "#26313a", metalness: 0.62, roughness: 0.34 });
-    const trim = new THREE.MeshStandardMaterial({ color: "#9c927d", metalness: 0.78, roughness: 0.24 });
-    const rubber = new THREE.MeshStandardMaterial({ color: "#151515", roughness: 0.92 });
-    const glass = new THREE.MeshStandardMaterial({ color: "#8ea6ae", roughness: 0.2, metalness: 0.25, transparent: true, opacity: 0.28 });
-    const box = (name: string, dimensions: [number, number, number], position: [number, number, number], material: THREE.Material) => {
-      const mesh = new THREE.Mesh(new THREE.BoxGeometry(...dimensions), material);
-      mesh.name = name;
-      mesh.position.set(...position);
-      mesh.castShadow = mesh.receiveShadow = true;
-      group.add(mesh);
-      return mesh;
-    };
-    // Replace only the car visual group; belongings keep independent physics proxies.
-    box("nick-car-body", [2.05, 0.72, 4.3], [0, 0.72, 0], paint);
-    box("nick-car-hood", [1.9, 0.42, 1.6], [0, 1.12, 1.3], paint);
-    box("nick-car-cabin", [1.68, 0.78, 1.75], [0, 1.28, 1.1], glass);
-    box("nick-car-roof", [1.72, 0.16, 1.7], [0, 1.7, 1.05], paint);
-    box("nick-car-trunk-floor", [1.72, 0.12, 1.65], [0, 0.48, 1.53], paint);
-    box("nick-car-trunk-left", [0.13, 0.54, 1.6], [-0.86, 0.78, 1.53], paint);
-    box("nick-car-trunk-right", [0.13, 0.54, 1.6], [0.86, 0.78, 1.53], paint);
-    this.trunkHinge.clear();
-    this.trunkHinge.rotation.set(0, 0, 0);
-    this.trunkHinge.name = "nick-car-openable-tailgate";
-    this.trunkHinge.position.set(0, 0.59, 2.32);
-    group.add(this.trunkHinge);
-    const tailgatePanel = new THREE.Mesh(new THREE.BoxGeometry(1.74, 0.12, 0.75), trim);
-    tailgatePanel.name = "nick-car-tailgate-panel";
-    tailgatePanel.position.set(0, 0, 0.375);
-    tailgatePanel.castShadow = tailgatePanel.receiveShadow = true;
-    this.trunkHinge.add(tailgatePanel);
-    this.tailgate = this.trunkHinge;
-    box("nick-car-bumper", [2.15, 0.15, 0.18], [0, 0.42, 2.39], trim);
-    for (const x of [-0.92, 0.92]) {
-      const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.18, 20), rubber);
-      wheel.name = "nick-car-wheel";
-      wheel.rotation.z = Math.PI / 2;
-      wheel.position.set(x, 0.4, -0.7);
-      wheel.castShadow = true;
-      group.add(wheel);
-      const rearWheel = wheel.clone(); rearWheel.position.z = 1.2; group.add(rearWheel);
-    }
+    // Procedural fallback keeps the trunk and belongings visible if an override is absent or fails.
+    this.tailgate = createNickCarModel(group, this.trunkHinge);
     const trunkSlots: [number, number, number][] = [
       [-0.42, 0.48, 0.9], [0.42, 0.48, 0.9], [-0.42, 0.48, 1.78], [0.42, 0.48, 1.78],
       [-0.42, 1.35, 0.9], [0, 1.35, 1.35], [0.42, 1.35, 0.9],
@@ -532,102 +476,17 @@ export class NicksHouseChapter {
     });
   }
 
-  private fitModel(model: THREE.Object3D, target: THREE.Vector3, alignBottom = false): void {
-    let bounds = new THREE.Box3().setFromObject(model);
-    const size = bounds.getSize(new THREE.Vector3());
-    const ratios = [size.x > 0 ? target.x / size.x : Infinity, size.y > 0 ? target.y / size.y : Infinity, size.z > 0 ? target.z / size.z : Infinity];
-    const scale = Math.min(...ratios);
-    if (Number.isFinite(scale)) model.scale.setScalar(scale);
-    bounds = new THREE.Box3().setFromObject(model);
-    const center = bounds.getCenter(new THREE.Vector3());
-    model.position.x -= center.x;
-    model.position.y -= alignBottom ? bounds.min.y : center.y;
-    model.position.z -= center.z;
-  }
-
-  private loadOptionalModel(path: string | null | undefined, attach: (model: THREE.Object3D) => boolean, targetSize?: number): void {
+  private loadOptionalModel(path: string | null | undefined, attach: (model: THREE.Object3D) => boolean, targetSize?: number, alignBottom = false): void {
     if (!path) return;
     void this.modelAssetSource.load(path).then((model) => {
       if (this.modelLoadToken.cancelled) {
-        this.disposeObjectTree(model);
+        disposeObjectTree(model);
         return;
       }
-      if (targetSize !== undefined) {
-        this.fitModel(model, new THREE.Vector3(targetSize, targetSize, targetSize));
-      }
+      if (targetSize !== undefined) fitModelToTarget(model, new THREE.Vector3(targetSize, targetSize, targetSize), alignBottom);
       model.traverse((object) => { object.castShadow = true; object.receiveShadow = true; });
-      if (!attach(model)) this.disposeObjectTree(model);
+      if (!attach(model)) disposeObjectTree(model);
     }).catch((error: unknown) => console.error(`Unable to load Nick's House model "${path}":`, error));
-  }
-
-  private disposeChildren(root: THREE.Object3D): void {
-    const children = [...root.children];
-    for (const child of children) {
-      root.remove(child);
-      this.disposeObjectTree(child);
-    }
-  }
-
-  private disposeObjectTree(root: THREE.Object3D): void {
-    const geometries = new Set<THREE.BufferGeometry>();
-    const materials = new Set<THREE.Material>();
-    const textures = new Set<THREE.Texture>();
-    root.traverse((object) => {
-      const mesh = object as THREE.Mesh;
-      if (mesh.geometry) geometries.add(mesh.geometry);
-      const list = Array.isArray(mesh.material) ? mesh.material : mesh.material ? [mesh.material] : [];
-      for (const material of list) {
-        materials.add(material);
-        for (const value of Object.values(material)) if (value instanceof THREE.Texture) textures.add(value);
-      }
-    });
-    geometries.forEach((geometry) => geometry.dispose());
-    materials.forEach((material) => material.dispose());
-    textures.forEach((texture) => texture.dispose());
-  }
-
-  private addProceduralBelonging(parent: THREE.Object3D, kind: BelongingSpec["kind"]): void {
-    const wood = new THREE.MeshStandardMaterial({ color: "#947044", roughness: 0.86 });
-    const dark = new THREE.MeshStandardMaterial({ color: "#4a3322", roughness: 0.82 });
-    const brass = new THREE.MeshStandardMaterial({ color: "#b08b4d", metalness: 0.72, roughness: 0.3 });
-    const fabric = new THREE.MeshStandardMaterial({ color: "#66534a", roughness: 0.94 });
-    const detail = (geometry: THREE.BufferGeometry, material: THREE.Material, position: [number, number, number], scale?: [number, number, number]) => {
-      const mesh = new THREE.Mesh(geometry, material);
-      mesh.position.set(...position);
-      if (scale) mesh.scale.set(...scale);
-      mesh.castShadow = true;
-      parent.add(mesh);
-    };
-    switch (kind) {
-      case "suitcase":
-        detail(new THREE.BoxGeometry(0.82, 0.58, 0.18), fabric, [0, 0, 0]);
-        detail(new THREE.TorusGeometry(0.12, 0.018, 6, 14, Math.PI), brass, [0, 0.33, 0]);
-        detail(new THREE.BoxGeometry(0.18, 0.07, 0.04), brass, [0, 0.05, 0.11]);
-        break;
-      case "lamp":
-        detail(new THREE.CylinderGeometry(0.06, 0.09, 0.12, 10), brass, [0, -0.15, 0]);
-        detail(new THREE.CylinderGeometry(0.025, 0.035, 0.3, 8), brass, [0, 0.02, 0]);
-        detail(new THREE.CylinderGeometry(0.1, 0.19, 0.16, 12, 1, true), fabric, [0, 0.22, 0]);
-        break;
-      case "books":
-        for (let index = 0; index < 3; index++) {
-          const book = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.12, 0.42), index % 2 ? dark : wood);
-          book.position.set(0, -0.17 + index * 0.13, (index % 2) * 0.04);
-          book.rotation.y = (index - 1) * 0.12;
-          book.castShadow = true;
-          parent.add(book);
-        }
-        break;
-      case "hatbox":
-        detail(new THREE.CylinderGeometry(0.34, 0.34, 0.58, 18), wood, [0, 0, 0]);
-        detail(new THREE.CylinderGeometry(0.35, 0.35, 0.04, 18), brass, [0, 0.3, 0]);
-        break;
-      default:
-        detail(new THREE.BoxGeometry(0.86, 0.78, 0.86), wood, [0, 0, 0]);
-        detail(new THREE.BoxGeometry(0.9, 0.05, 0.9), dark, [0, 0.05, 0]);
-        for (const offset of [-0.22, 0.22]) detail(new THREE.BoxGeometry(0.08, 0.8, 0.88), dark, [offset, 0, 0]);
-        break;
-    }
   }
 
   private requirePhysics(): HavokPhysics {
@@ -658,16 +517,17 @@ export class NicksHouseChapter {
     mesh.name = `belonging:${spec.id}`;
     mesh.userData.belongingId = spec.id;
     this.modelRoot?.add(mesh);
-    const belongingModelPath = MODEL_OVERRIDES.belongings[spec.id];
+    const belongingModel = BELONGING_MODEL_OVERRIDES[spec.id];
+    const belongingModelPath = belongingModel?.path;
     mesh.position.set(x, y, z);
-    this.addProceduralBelonging(mesh, spec.kind);
+    createProceduralBelonging(mesh, spec.kind);
     if (belongingModelPath && this.modelRoot) {
       this.loadOptionalModel(belongingModelPath, (model) => {
         if (mesh.parent !== this.modelRoot) return false;
-        this.disposeChildren(mesh);
+        disposeChildren(mesh);
         mesh.add(model);
         return true;
-      }, size);
+      }, size, belongingModel.fit.alignBottom);
     }
 
     const spawn = new THREE.Vector3(x, y, z);

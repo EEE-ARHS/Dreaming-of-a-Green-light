@@ -4,23 +4,12 @@ import gsap from "gsap";
 import { createRoot } from "react-dom/client";
 import "./style.css";
 import "../../title-screen/assets/title-screen.css";
+import { CHAPTER_OPTIONS } from "./chapters/menu";
 
 const RuntimeCanvas = lazy(() => import("./runtime-canvas").then(({ RuntimeCanvas }) => ({ default: RuntimeCanvas })));
 const TitleScene = lazy(() => import("./title-scene").then(({ TitleScene }) => ({ default: TitleScene })));
 gsap.registerPlugin(useGSAP);
 const OPENING_CREDITS = ["GITHUB", "FREEBUFF", "COMPANY THREE", "COMPANY FOUR", "COMPANY FIVE"];
-const CHAPTER_OPTIONS = [
-  { id: "nicksHouse", slot: "CHAPTER 01", name: "NICK'S HOUSE", description: "Unpack Nick's car and bring his belongings inside his West Egg home.", locked: false },
-  { id: "chapter02", slot: "CHAPTER 02", name: "????????", description: "A new chapter is taking shape.", locked: true },
-  { id: "chapter03", slot: "CHAPTER 03", name: "????????", description: "A new chapter is taking shape.", locked: true },
-  { id: "chapter04", slot: "CHAPTER 04", name: "????????", description: "A new chapter is taking shape.", locked: true },
-  { id: "chapter05", slot: "CHAPTER 05", name: "????????", description: "A new chapter is taking shape.", locked: true },
-  { id: "crashDrive", slot: "CHAPTER 06", name: "THE VALLEY OF ASHES", description: "The road from New York runs black through the Valley. Steer the yellow car through the crossing.", locked: false },
-  { id: "chapter07", slot: "CHAPTER 07", name: "????????", description: "A new chapter is taking shape.", locked: true },
-  { id: "chapter08", slot: "CHAPTER 08", name: "????????", description: "A new chapter is taking shape.", locked: true },
-  { id: "chapter09", slot: "CHAPTER 09", name: "????????", description: "A new chapter is taking shape.", locked: true },
-  { id: "chapter10", slot: "CHAPTER 10", name: "????????", description: "A new chapter is taking shape.", locked: true },
-];
 
 function App() {
   const rootRef = useRef<HTMLDivElement>(null);
