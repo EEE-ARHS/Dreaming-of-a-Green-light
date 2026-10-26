@@ -1,4 +1,6 @@
 /** All sound is synthesised at runtime: a straight-six idle, wind, and the impact. */
+import { AUDIO_CONFIG } from "./audio-constants";
+
 export class GameAudio {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
@@ -26,23 +28,23 @@ export class GameAudio {
     await ctx.resume();
 
     const master = ctx.createGain();
-    master.gain.value = this.muted ? 0 : 0.55;
+    master.gain.value = this.muted ? 0 : AUDIO_CONFIG.masterVolume;
     master.connect(ctx.destination);
     this.master = master;
 
     // Engine: two detuned saws through a low-pass.
     const engineGain = ctx.createGain();
-    engineGain.gain.value = 0.02;
+    engineGain.gain.value = AUDIO_CONFIG.engine.baseGain;
     const filter = ctx.createBiquadFilter();
     filter.type = "lowpass";
-    filter.frequency.value = 260;
-    filter.Q.value = 3.5;
+    filter.frequency.value = AUDIO_CONFIG.engine.filterFreq;
+    filter.Q.value = AUDIO_CONFIG.engine.filterQ;
     const osc = ctx.createOscillator();
     osc.type = "sawtooth";
-    osc.frequency.value = 42;
+    osc.frequency.value = AUDIO_CONFIG.engine.baseFreq;
     const sub = ctx.createOscillator();
     sub.type = "square";
-    sub.frequency.value = 21;
+    sub.frequency.value = AUDIO_CONFIG.engine.subFreq;
     const subGain = ctx.createGain();
     subGain.gain.value = 0.45;
     sub.connect(subGain);
@@ -62,8 +64,8 @@ export class GameAudio {
     windGain.gain.value = 0;
     const windFilter = ctx.createBiquadFilter();
     windFilter.type = "bandpass";
-    windFilter.frequency.value = 780;
-    windFilter.Q.value = 0.7;
+    windFilter.frequency.value = AUDIO_CONFIG.wind.bandpassFreq;
+    windFilter.Q.value = AUDIO_CONFIG.wind.q;
     const wind = ctx.createBufferSource();
     wind.buffer = this.noiseBuffer(ctx, 4, 0.4);
     wind.loop = true;
@@ -93,12 +95,12 @@ export class GameAudio {
     if (!this.ctx || !this.engineOsc || !this.engineGain || !this.engineFilter || !this.engineSub) return;
     const now = this.ctx.currentTime;
     const s = Math.min(1, Math.abs(speed) / 31);
-    const target = crashed ? 0.005 : 0.024 + s * 0.13 + throttle * 0.02;
+    const target = crashed ? 0.005 : AUDIO_CONFIG.engine.baseGain + s * AUDIO_CONFIG.engine.maxSpeedScale + throttle * AUDIO_CONFIG.engine.throttleScale;
     this.engineGain.gain.setTargetAtTime(target, now, 0.12);
     this.engineOsc.frequency.setTargetAtTime(38 + s * 104 + throttle * 9, now, 0.15);
     this.engineSub.frequency.setTargetAtTime(19 + s * 46, now, 0.15);
     this.engineFilter.frequency.setTargetAtTime(220 + s * 620, now, 0.15);
-    this.windGain?.gain.setTargetAtTime(crashed ? 0.005 : s * 0.055, now, 0.3);
+    this.windGain?.gain.setTargetAtTime(crashed ? 0.005 : s * AUDIO_CONFIG.wind.maxGain, now, 0.3);
   }
 
   impact(): void {
@@ -109,10 +111,10 @@ export class GameAudio {
     // Low body thump.
     const thump = ctx.createOscillator();
     thump.type = "sine";
-    thump.frequency.setValueAtTime(92, now);
-    thump.frequency.exponentialRampToValueAtTime(29, now + 0.55);
+    thump.frequency.setValueAtTime(AUDIO_CONFIG.impact.thumpFreqStart, now);
+    thump.frequency.exponentialRampToValueAtTime(AUDIO_CONFIG.impact.thumpFreqEnd, now + 0.55);
     const thumpGain = ctx.createGain();
-    thumpGain.gain.setValueAtTime(0.9, now);
+    thumpGain.gain.setValueAtTime(AUDIO_CONFIG.impact.thumpGain, now);
     thumpGain.gain.exponentialRampToValueAtTime(0.001, now + 0.9);
     thump.connect(thumpGain);
     thumpGain.connect(this.master);
@@ -124,10 +126,10 @@ export class GameAudio {
     burst.buffer = this.noiseBuffer(ctx, 1.2, 0.1);
     const burstFilter = ctx.createBiquadFilter();
     burstFilter.type = "lowpass";
-    burstFilter.frequency.setValueAtTime(2600, now);
-    burstFilter.frequency.exponentialRampToValueAtTime(240, now + 0.6);
+    burstFilter.frequency.setValueAtTime(AUDIO_CONFIG.impact.burstFreqStart, now);
+    burstFilter.frequency.exponentialRampToValueAtTime(AUDIO_CONFIG.impact.burstFreqEnd, now + 0.6);
     const burstGain = ctx.createGain();
-    burstGain.gain.setValueAtTime(0.65, now);
+    burstGain.gain.setValueAtTime(AUDIO_CONFIG.impact.burstGain, now);
     burstGain.gain.exponentialRampToValueAtTime(0.001, now + 1.1);
     burst.connect(burstFilter);
     burstFilter.connect(burstGain);
@@ -138,10 +140,10 @@ export class GameAudio {
     // A thin ring in the ears, like the moment after a collision.
     const ring = ctx.createOscillator();
     ring.type = "sine";
-    ring.frequency.value = 4800;
+    ring.frequency.value = AUDIO_CONFIG.impact.ringFreq;
     const ringGain = ctx.createGain();
     ringGain.gain.setValueAtTime(0.001, now);
-    ringGain.gain.linearRampToValueAtTime(0.02, now + 0.1);
+    ringGain.gain.linearRampToValueAtTime(AUDIO_CONFIG.impact.ringGain, now + 0.1);
     ringGain.gain.exponentialRampToValueAtTime(0.0005, now + 5.5);
     ring.connect(ringGain);
     ringGain.connect(this.master);
@@ -163,5 +165,19 @@ export class GameAudio {
 
   getMuted(): boolean {
     return this.muted;
+  }
+
+  dispose(): void {
+    this.engineOsc?.stop();
+    this.engineSub?.stop();
+    void this.ctx?.close();
+    this.ctx = null;
+    this.master = null;
+    this.engineGain = null;
+    this.engineOsc = null;
+    this.engineSub = null;
+    this.engineFilter = null;
+    this.windGain = null;
+    this.started = false;
   }
 }

@@ -6,7 +6,7 @@
 
 export const ENGINE_CONFIG = {
   rendering: {
-    pixelRatioLimit: 1.25,
+    pixelRatioLimit: 1.15,
     toneMappingExposure: 1.1,
     antialias: false,
     powerPreference: "high-performance",

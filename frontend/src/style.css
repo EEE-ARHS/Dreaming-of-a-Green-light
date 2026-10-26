@@ -21,6 +21,7 @@ body { user-select: none; }
 #root svg:not([data-preserve-color]) { filter: grayscale(1) brightness(0) invert(1); }
 #root img:not([data-preserve-color]) { filter: grayscale(1) brightness(0) invert(1); }
 .r3f-canvas { position: fixed !important; inset: 0; width: 100% !important; height: 100% !important; display: block; outline: none; touch-action: none; }
+.chapter-transition-curtain { position: fixed; inset: 0; z-index: 40; visibility: hidden; opacity: 0; background: #000; pointer-events: none; }
 
 /* Deco ornament: stepped fan rays, foil lines, midnight enamel. */
 #vignette, #grain, #flash { position: fixed; inset: 0; pointer-events: none; }
@@ -114,7 +115,7 @@ body { user-select: none; }
 .chapter-select::before { content: none; }
 .chapter-select-heading { position: relative; top: auto; left: auto; z-index: 2; display: flex; justify-content: center; width: min(320px,100%); margin: 0 auto; text-align: center; }
 .chapter-select-heading h2 { color: rgba(255,255,255,.72); font: 400 10px/1 var(--sans); letter-spacing: .28em; text-align: center; }
-.chapter-select-close { position: absolute; top: clamp(24px,4vw,48px); right: clamp(24px,4vw,48px); visibility: hidden; pointer-events: none; border-color: rgba(255,255,255,.18); color: rgba(255,255,255,.6); }
+.chapter-select-close { position: absolute; top: clamp(24px,4vw,48px); right: clamp(24px,4vw,48px); visibility: hidden; pointer-events: none; border: 0; border-radius: 0; color: rgba(255,255,255,.6); }
 .chapter-card-row { display: flex; align-items: stretch; gap: clamp(8px,1.15vw,18px); width: min(1320px,100%); height: clamp(310px,52vh,540px); margin: 0 auto; }
 .chapter-expand-card { --card-art: none; position: relative; display: flex; flex: 1 1 0; flex-direction: column; justify-content: space-between; min-width: 0; height: 100%; overflow: hidden; margin: 0; padding: clamp(18px,2.2vw,30px); border: 1px solid rgba(255,255,255,.16); border-radius: 2px; text-align: left; text-indent: 0; background: #111315; box-shadow: 0 18px 45px rgba(0,0,0,.3); opacity: 0; transform: translate3d(0,24px,0) rotateX(5deg) scale(.97); cursor: pointer; isolation: isolate; perspective: 900px; }
 .chapter-expand-card::before { position: absolute; inset: 0; z-index: 0; content: ''; background: var(--card-art) center / cover no-repeat; transform: scale(1.035); pointer-events: none; }
@@ -154,7 +155,12 @@ body { user-select: none; }
 .chapter-select-layout { display: flex; align-items: center; justify-content: center; width: min(560px,100%); margin: 0 auto; }
 .chapter-dot-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: clamp(22px,3.8vw,42px); justify-items: center; align-items: center; width: min(320px,100%); }
 .chapter-dot { display: grid; width: 12px; aspect-ratio: 1; place-items: center; margin: 0; padding: 14px; border: 0; border-radius: 50%; background: transparent; box-shadow: none; }
-.chapter-dot span { display: block; width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,.28); }
+.chapter-dot span { display: block; width: 7px; height: 7px; border: 1px solid rgba(255,255,255,.38); border-radius: 50%; background: transparent; transition: background-color .2s ease, box-shadow .2s ease, transform .2s ease; }
+.chapter-dot.is-available span { border-color: rgba(242,223,167,.82); background: rgba(215,185,112,.32); }
+.chapter-dot.is-selected span { background: #f2dfa7; }
+.chapter-dot:focus-visible,.chapter-select-close:focus-visible { outline: none; box-shadow: none; }
+.chapter-dot-action:focus-visible { outline: 2px solid rgba(242,231,207,.95); outline-offset: 5px; }
+.chapter-dot-action:disabled { opacity: .42; cursor: not-allowed; }
 .chapter-dot-detail { min-height: 160px; padding-left: clamp(24px,4vw,44px); border-left: 1px solid rgba(255,255,255,.1); }
 .chapter-dot-meta { display: flex; align-items: center; gap: 10px; margin: 0 0 18px; color: rgba(255,255,255,.48); font: 8px var(--sans); letter-spacing: .16em; }
 .chapter-dot-meta i { width: 16px; height: 1px; background: rgba(255,255,255,.2); }
@@ -165,8 +171,11 @@ body { user-select: none; }
 @media (max-width: 760px) {
   .chapter-select { gap: clamp(36px,7vh,56px); padding: 78px 28px 42px; }
   .chapter-select-heading { width: min(460px,100%); }
-  .chapter-select-layout { width: min(320px,100%); }
+  .chapter-select-layout { flex-direction: column; gap: 8px; width: min(420px,100%); }
   .chapter-dot-grid { grid-template-columns: repeat(4,1fr); gap: clamp(20px,6vw,34px); width: 100%; }
+  .chapter-dot-detail { width: 100%; text-align: center; }
+  .chapter-dot-meta { justify-content: center; }
+  .chapter-dot-description { max-width: 38ch; margin-right: auto; margin-left: auto; }
   .chapter-dot-detail { min-height: 0; padding: 22px 0 0; border-top: 1px solid rgba(255,255,255,.1); border-left: 0; }
   .chapter-dot-detail h3 { font-size: clamp(30px,8vw,40px); }
   .chapter-dot-action { margin-top: 18px; }

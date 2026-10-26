@@ -3,11 +3,10 @@ import {
   MeshStandardMaterial, PointLight, Quaternion, Scene, SpotLight, TorusGeometry, Vector3,
 } from "three";
 import { HavokPhysics, PhysicsAggregate, PhysicsMotionType, PhysicsShapeType } from "./physics";
+import { MAX_SPEED, WHEEL_RADIUS, CAR_ROOT_Y, CAR_BODY_EXTENTS, CAR_MASS } from "./car-constants";
 
 export interface CarInput { throttle: number; brake: number; steer: number; handbrake: boolean; }
 export interface Wheel { pivot: Group; spinner: Group; front: boolean; }
-const MAX_SPEED = 31;
-const WHEEL_RADIUS = 0.36;
 function material(name: string, color: string, emissive?: string): MeshStandardMaterial {
   return new MeshStandardMaterial({ name, color, emissive: emissive ?? "#000000", roughness: 0.56, metalness: 0.18 });
 }
@@ -23,7 +22,7 @@ export class Car {
   speed = 0; yaw = 0; steer = 0; wheelSpin = 0; crashed = false;
   private readonly fill: PointLight;
   constructor(scene: Scene, physics: HavokPhysics) {
-    this.root = new Group(); this.root.name = "carRoot"; this.root.position.set(0, 0.62, 0); scene.add(this.root);
+    this.root = new Group(); this.root.name = "carRoot"; this.root.position.set(0, CAR_ROOT_Y, 0); scene.add(this.root);
     const paint = material("gatsbyYellow", "#d8ae2f", "#171002"), paintDark = material("gatsbyYellowDark", "#a9821f", "#100b02");
     const chrome = material("chrome", "#b9bdc2"); chrome.metalness = 0.82; chrome.roughness = 0.22;
     const leather = material("leather", "#2a1b12"), rubber = material("rubber", "#0e0e10"), cream = material("whitewall", "#cfc6b2");
@@ -71,7 +70,7 @@ export class Car {
       const spot = new SpotLight("#ffe8bd", 2.6, 58, Math.PI / 3.3, 0.5, 2); spot.position.set(-0.56, 0.5, 2.1); spot.target.position.set(0, 0.38, 3.1); this.root.add(spot, spot.target); this.headlights.push(spot);
       const beam = new Mesh(new CylinderGeometry(0.25, 3.75, 24, 18), beamMat); beam.position.set((i === 0 ? -1 : 1) * 0.56, 0.44, 14); beam.rotation.x = -Math.PI / 2; beam.renderOrder = 1; beam.name = "headlightBeam" + i; this.root.add(beam); this.beams.push(beam);
     }
-    this.body = new PhysicsAggregate(this.root, PhysicsShapeType.BOX, { mass: 1250, friction: 0.5, restitution: 0.05, extents: new Vector3(1.95, 1.15, 4.5) }, physics);
+    this.body = new PhysicsAggregate(this.root, PhysicsShapeType.BOX, { mass: CAR_MASS, friction: 0.5, restitution: 0.05, extents: CAR_BODY_EXTENTS }, physics);
     this.body.body.setMotionType(PhysicsMotionType.ANIMATED);
     this.applyTransform();
   }
@@ -102,7 +101,7 @@ export class Car {
     const fwd = this.forward; this.root.position.x = Math.max(-38, Math.min(38, this.root.position.x + fwd.x * this.speed * dt));
     this.root.position.z = Math.max(-50, Math.min(340, this.root.position.z + fwd.z * this.speed * dt));
     const t = performance.now() * 0.001, bob = Math.sin(t * 9 + this.wheelSpin * 0.15) * 0.004 * Math.min(1, Math.abs(this.speed) / 8);
-    this.root.position.y = 0.62 + bob;
+    this.root.position.y = CAR_ROOT_Y + bob;
     this.root.rotation.set(-this.steer * Math.min(1, Math.abs(this.speed) / MAX_SPEED) * 0.028 + Math.sin(t * 6.3) * 0.002, this.yaw, this.steer * Math.min(1, Math.abs(this.speed) / MAX_SPEED) * 0.035, "YXZ");
     this.wheelSpin += this.speed / WHEEL_RADIUS * dt;
     for (const wheel of this.wheels) { wheel.pivot.rotation.y = wheel.front ? this.steer * 0.5 : 0; wheel.spinner.rotation.x = this.wheelSpin; }
@@ -123,7 +122,7 @@ export class Car {
   }
   reset(): void {
     this.speed = 0; this.yaw = 0; this.steer = 0; this.wheelSpin = 0; this.crashed = false;
-    this.root.position.set(0, 0.62, 0); this.root.rotation.set(0, 0, 0);
+    this.root.position.set(0, CAR_ROOT_Y, 0); this.root.rotation.set(0, 0, 0);
     for (const wheel of this.wheels) { wheel.pivot.rotation.set(0, 0, 0); wheel.spinner.rotation.set(0, 0, 0); }
     this.applyTransform(); this.updateLights();
   }

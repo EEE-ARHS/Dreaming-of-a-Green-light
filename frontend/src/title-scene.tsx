@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
+import { ENGINE_CONFIG } from "./config";
 
 function SceneElements() {
   const arches = useRef<THREE.Group>(null);
@@ -89,7 +90,7 @@ function SceneElements() {
 }
 
 export function TitleScene() {
-  return <Canvas className="title-scene-canvas" dpr={[1, 1.5]} camera={{ position: [0, 4.2, 15], fov: 42, near: 0.1, far: 100 }} gl={{ antialias: true, alpha: false, powerPreference: "low-power" }}>
+  return <Canvas className="title-scene-canvas" dpr={[1, ENGINE_CONFIG.rendering.pixelRatioLimit]} camera={{ position: [0, 4.2, 15], fov: 42, near: 0.1, far: 100 }} gl={{ antialias: false, alpha: false, powerPreference: "low-power" }}>
     <SceneElements />
   </Canvas>;
 }

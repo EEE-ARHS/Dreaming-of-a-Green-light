@@ -14,7 +14,8 @@
     "isolatedModules": true,
     "resolveJsonModule": true,
     "paths": {
-      "three": ["./node_modules/@types/three"]
+      "three": ["./node_modules/@types/three"],
+      "three/examples/jsm/*": ["./node_modules/@types/three/examples/jsm/*"]
     },
     "types": ["vite/client"]
   },

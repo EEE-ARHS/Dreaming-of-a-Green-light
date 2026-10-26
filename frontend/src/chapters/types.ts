@@ -1,6 +1,9 @@
 import { Vector3, type PerspectiveCamera, type Scene, type WebGLRenderer } from "three";
 import type { GameAudio } from "../audio";
 import type { HavokPhysics } from "../physics";
+import type { Car } from "../car";
+import type { Myrtle } from "../ragdoll";
+import type { World } from "../world";
 
 export interface ChapterFlavor {
   kicker: string;
@@ -33,7 +36,10 @@ export interface ChapterContext {
   scene: Scene;
   engine: WebGLRenderer;
   camera: PerspectiveCamera;
-  physics: HavokPhysics;
+  physics?: HavokPhysics;
+  car?: Car;
+  myrtle?: Myrtle;
+  world?: World;
   audio: GameAudio;
   keys: Set<string>;
   pointer: PointerInput;
@@ -48,7 +54,7 @@ export interface Chapter {
   readonly blurb: string;
   readonly command: string;
   readonly how: string;
-  readonly duration: number;
+  readonly duration: number | null;
   start(): void;
   update(dt: number): void;
   idle(dt: number): void;

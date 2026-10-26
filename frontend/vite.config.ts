@@ -5,7 +5,10 @@ const threeEntry = fileURLToPath(new URL("./node_modules/three/build/three.modul
 
 export default defineConfig({
   resolve: {
-    alias: { three: threeEntry },
+    alias: [
+      { find: /^three\/examples\/jsm\//, replacement: fileURLToPath(new URL("./node_modules/three/examples/jsm/", import.meta.url)) },
+      { find: /^three$/, replacement: threeEntry },
+    ],
   },
   base: "./",
   build: {

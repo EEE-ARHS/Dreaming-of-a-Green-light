@@ -1,4 +1,4 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import type { RefObject } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import type { RootState } from "@react-three/fiber";
@@ -6,6 +6,8 @@ import * as THREE from "three";
 import { ENGINE_CONFIG } from "./config";
 import "./style.css";
 import "../../title-screen/assets/title-screen.css";
+
+import type { RuntimeHandle } from "./runtime";
 
 interface RuntimeCanvasProps {
   initialChapterId: string;
@@ -21,15 +23,36 @@ function RuntimeLoop({ renderFrame }: { renderFrame: RefObject<((now: number, de
 export function RuntimeCanvas({ initialChapterId, onReady, onError }: RuntimeCanvasProps) {
   const renderFrame = useRef<((now: number, delta: number) => void) | null>(null);
   const initialized = useRef(false);
+  const runtimeHandle = useRef<RuntimeHandle | null>(null);
+  useEffect(() => () => { runtimeHandle.current?.dispose(); runtimeHandle.current = null; }, []);
+  useEffect(() => {
+    const onContextLost = (event: Event) => event.preventDefault();
+    const onContextRestored = () => {
+      runtimeHandle.current?.dispose();
+      runtimeHandle.current = null;
+      renderFrame.current = null;
+      initialized.current = false;
+    };
+    const canvases = document.querySelectorAll<HTMLCanvasElement>("canvas.r3f-canvas");
+    canvases.forEach((canvas) => {
+      canvas.addEventListener("webglcontextlost", onContextLost, false);
+      canvas.addEventListener("webglcontextrestored", onContextRestored, false);
+    });
+    return () => canvases.forEach((canvas) => {
+      canvas.removeEventListener("webglcontextlost", onContextLost);
+      canvas.removeEventListener("webglcontextrestored", onContextRestored);
+    });
+  }, []);
 
   const handleCreated = useCallback((state: RootState) => {
     if (initialized.current) return;
     initialized.current = true;
-    state.gl.shadowMap.type = THREE.PCFSoftShadowMap;
+    state.gl.shadowMap.type = THREE.PCFShadowMap;
     state.gl.toneMapping = THREE.ACESFilmicToneMapping;
     state.gl.toneMappingExposure = ENGINE_CONFIG.rendering.toneMappingExposure;
     void import("./runtime").then(({ startRuntime }) => {
-      renderFrame.current = startRuntime(state, initialChapterId, onReady);
+      runtimeHandle.current = startRuntime(state, initialChapterId, onReady);
+      renderFrame.current = runtimeHandle.current.render;
     }).catch((error: unknown) => {
       console.error(error);
       onError(error instanceof Error ? error.message : String(error));

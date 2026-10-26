@@ -1,0 +1,38 @@
+{
+  "slot": "CHAPTER 01",
+  "name": "NICK'S HOUSE",
+  "blurb": "Nick has finally brought his things home to West Egg. Unpack the car, carry each belonging inside, and make the little house your own.",
+  "command": "WELCOME HOME",
+  "how": "WASD to walk · Mouse to look · Click and drag belongings from the car into the house · ESC for chapters",
+  "duration": null,
+  "models": {
+    "format": "glb or gltf; paths resolve from the frontend public root",
+    "house": null,
+    "car": null,
+    "belongings": {
+      "moving-crate": null,
+      "leather-suitcase": null,
+      "reading-lamp": null,
+      "letters": null,
+      "hatbox": null,
+      "picture-frame": null,
+      "keepsakes": null
+    }
+  },
+  "flavor": {
+    "win": {
+      "kicker": "CHAPTER I · WEST EGG",
+      "title": "A HONEST HOUSE",
+      "body": "All {count} of Nick's belongings are finally inside. The last box settles by the window; the little West Egg house begins to feel like a home, while across the bay the lights of Gatsby's party come alive.",
+      "quote": "I am one of the few honest people that I have ever known.",
+      "cite": "F. Scott Fitzgerald, The Great Gatsby"
+    },
+    "lose": {
+      "kicker": "CHAPTER I · WEST EGG",
+      "title": "A HOUSE STILL WAITING",
+      "body": "Nick's belongings remain scattered between the car and the open doorway. There is no hurry. His home will be waiting whenever you are ready to finish unpacking.",
+      "quote": "So we beat on, boats against the current, borne back ceaselessly into the past.",
+      "cite": "F. Scott Fitzgerald, The Great Gatsby"
+    }
+  }
+}

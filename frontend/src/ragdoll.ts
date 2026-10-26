@@ -2,44 +2,22 @@ import {
   BoxGeometry, CapsuleGeometry, CylinderGeometry, Mesh, MeshStandardMaterial, Quaternion, Scene,
   SphereGeometry, TorusGeometry, Vector3,
 } from "three";
-import { HavokPhysics, PhysicsAggregate, PhysicsConstraint, PhysicsMotionType, PhysicsShapeType, type PhysicsJointLimits, type PhysicsMaterialOptions } from "./physics";
+import { HavokPhysics, PhysicsAggregate, PhysicsConstraint, PhysicsMotionType, PhysicsShapeType, type PhysicsMaterialOptions } from "./physics";
+import {
+  Y_AXIS, X_AXIS,
+  type PartMaterial, type PartDef, type JointDef,
+  PART_DEFS, JOINT_DEFS
+} from "./ragdoll-constants";
 
-type ShapeKind = "box" | "capsule" | "sphere";
-type PartMaterial = "dress" | "skin" | "hair" | "shoe" | "pearl";
-type JointLimits = PhysicsJointLimits;
-interface PartDef { name: string; kind: ShapeKind; pos: [number, number, number]; size?: [number, number, number]; radius?: number; length?: number; mass: number; material: PartMaterial; }
-interface Part { def: PartDef; mesh: Mesh; aggregate: PhysicsAggregate; body: PhysicsAggregate["body"]; restPos: Vector3; restRot: Quaternion; }
-interface JointDef { parent: string; child: string; pivot: [number, number, number]; limits: JointLimits; }
-const Y_AXIS = new Vector3(0, 1, 0), X_AXIS = new Vector3(1, 0, 0), ZERO: [number, number] = [0, 0];
-const PART_DEFS: PartDef[] = [
-  { name: "pelvis", kind: "box", pos: [0, 0.98, 0], size: [0.3, 0.2, 0.22], mass: 9, material: "dress" },
-  { name: "torso", kind: "box", pos: [0, 1.22, 0], size: [0.36, 0.4, 0.23], mass: 13, material: "dress" },
-  { name: "head", kind: "sphere", pos: [0, 1.5, 0.005], radius: 0.115, mass: 4, material: "skin" },
-  { name: "armUL", kind: "capsule", pos: [-0.245, 1.235, 0], radius: 0.052, length: 0.3, mass: 2.4, material: "dress" },
-  { name: "armFL", kind: "capsule", pos: [-0.245, 0.955, 0], radius: 0.045, length: 0.27, mass: 1.8, material: "skin" },
-  { name: "armUR", kind: "capsule", pos: [0.245, 1.235, 0], radius: 0.052, length: 0.3, mass: 2.4, material: "dress" },
-  { name: "armFR", kind: "capsule", pos: [0.245, 0.955, 0], radius: 0.045, length: 0.27, mass: 1.8, material: "skin" },
-  { name: "thighL", kind: "capsule", pos: [-0.095, 0.705, 0], radius: 0.075, length: 0.4, mass: 6, material: "skin" },
-  { name: "shinL", kind: "capsule", pos: [-0.095, 0.355, 0], radius: 0.058, length: 0.36, mass: 4, material: "skin" },
-  { name: "footL", kind: "box", pos: [-0.095, 0.1, 0.055], size: [0.11, 0.1, 0.24], mass: 1.2, material: "shoe" },
-  { name: "thighR", kind: "capsule", pos: [0.095, 0.705, 0], radius: 0.075, length: 0.4, mass: 6, material: "skin" },
-  { name: "shinR", kind: "capsule", pos: [0.095, 0.355, 0], radius: 0.058, length: 0.36, mass: 4, material: "skin" },
-  { name: "footR", kind: "box", pos: [0.095, 0.1, 0.055], size: [0.11, 0.1, 0.24], mass: 1.2, material: "shoe" },
-];
-const JOINT_DEFS: JointDef[] = [
-  { parent: "pelvis", child: "torso", pivot: [0, 1.045, 0], limits: { twist: [-0.32, 0.32], pitch: [-0.28, 0.32], roll: [-0.26, 0.26] } },
-  { parent: "torso", child: "head", pivot: [0, 1.4, 0], limits: { twist: [-0.5, 0.5], pitch: [-0.5, 0.5], roll: [-0.5, 0.5] } },
-  { parent: "torso", child: "armUL", pivot: [-0.215, 1.38, 0], limits: { twist: [-1.2, 1.2], pitch: [-1.35, 1.35], roll: [-1.2, 1.2] } },
-  { parent: "armUL", child: "armFL", pivot: [-0.245, 1.085, 0], limits: { twist: ZERO, pitch: [0.02, 2.1], roll: ZERO } },
-  { parent: "torso", child: "armUR", pivot: [0.215, 1.38, 0], limits: { twist: [-1.2, 1.2], pitch: [-1.35, 1.35], roll: [-1.2, 1.2] } },
-  { parent: "armUR", child: "armFR", pivot: [0.245, 1.085, 0], limits: { twist: ZERO, pitch: [0.02, 2.1], roll: ZERO } },
-  { parent: "pelvis", child: "thighL", pivot: [-0.095, 0.9, 0], limits: { twist: [-0.3, 0.3], pitch: [-1.2, 0.55], roll: [-0.34, 0.34] } },
-  { parent: "thighL", child: "shinL", pivot: [-0.095, 0.51, 0], limits: { twist: ZERO, pitch: [-2.2, 0.03], roll: ZERO } },
-  { parent: "shinL", child: "footL", pivot: [-0.095, 0.175, 0], limits: { twist: ZERO, pitch: [-0.45, 0.5], roll: ZERO } },
-  { parent: "pelvis", child: "thighR", pivot: [0.095, 0.9, 0], limits: { twist: [-0.3, 0.3], pitch: [-1.2, 0.55], roll: [-0.34, 0.34] } },
-  { parent: "thighR", child: "shinR", pivot: [0.095, 0.51, 0], limits: { twist: ZERO, pitch: [-2.2, 0.03], roll: ZERO } },
-  { parent: "shinR", child: "footR", pivot: [0.095, 0.175, 0], limits: { twist: ZERO, pitch: [-0.45, 0.5], roll: ZERO } },
-];
+type Part = {
+  def: PartDef;
+  mesh: Mesh;
+  aggregate: PhysicsAggregate;
+  body: PhysicsAggregate["body"];
+  restPos: Vector3;
+  restRot: Quaternion;
+};
+
 export type MyrtleMode = "idle" | "crossing" | "waving" | "ragdoll";
 export class Myrtle {
   readonly parts: Part[] = [];
@@ -61,10 +39,29 @@ export class Myrtle {
     let geometry: BoxGeometry | SphereGeometry | CapsuleGeometry;
     let shape: "box" | "capsule" | "sphere";
     const options: PhysicsMaterialOptions = { mass: def.mass, friction: 0.75, restitution: 0.05 };
-    if (def.kind === "box" && def.size) { geometry = new BoxGeometry(...def.size); shape = PhysicsShapeType.BOX; options.extents = new Vector3(...def.size); }
-    else if (def.kind === "capsule" && def.radius && def.length) { geometry = new CapsuleGeometry(def.radius, def.length, 4, 10); shape = PhysicsShapeType.CAPSULE; const half = def.length / 2 - def.radius; options.radius = def.radius; options.pointA = new Vector3(0, -half, 0); options.pointB = new Vector3(0, half, 0); }
-    else { const radius = def.radius ?? 0.1; geometry = new SphereGeometry(radius, 16, 12); shape = PhysicsShapeType.SPHERE; options.radius = radius; }
-    const partMesh = new Mesh(geometry, this.materials[def.material]); partMesh.name = def.name; partMesh.position.set(...def.pos); partMesh.castShadow = true; partMesh.receiveShadow = true; this.scene.add(partMesh);
+    if (def.kind === "box" && def.size) {
+      geometry = new BoxGeometry(...def.size);
+      shape = PhysicsShapeType.BOX;
+      options.extents = new Vector3(...def.size);
+    } else if (def.kind === "capsule" && def.radius && def.length) {
+      geometry = new CapsuleGeometry(def.radius, def.length, 4, 10);
+      shape = PhysicsShapeType.CAPSULE;
+      const half = def.length / 2 - def.radius;
+      options.radius = def.radius;
+      options.pointA = new Vector3(0, -half, 0);
+      options.pointB = new Vector3(0, half, 0);
+    } else {
+      const radius = def.radius ?? 0.1;
+      geometry = new SphereGeometry(radius, 16, 12);
+      shape = PhysicsShapeType.SPHERE;
+      options.radius = radius;
+    }
+    const partMesh = new Mesh(geometry, this.materials[def.material]);
+    partMesh.name = def.name;
+    partMesh.position.set(...def.pos);
+    partMesh.castShadow = true;
+    partMesh.receiveShadow = true;
+    this.scene.add(partMesh);
     const aggregate = new PhysicsAggregate(partMesh, shape, options, this.physics);
     const part: Part = { def, mesh: partMesh, aggregate, body: aggregate.body, restPos: new Vector3(...def.pos), restRot: new Quaternion() };
     this.addDecoration(part, def);

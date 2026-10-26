@@ -5,12 +5,7 @@ import {
   PlaneGeometry, PointLight, Scene, SphereGeometry, Vector3, type Object3D,
 } from "three";
 import { HavokPhysics, PhysicsAggregate, PhysicsShapeType } from "./physics";
-
-export const ROAD_Z_START = -60;
-export const ROAD_Z_END = 340;
-export const ROAD_LENGTH = ROAD_Z_END - ROAD_Z_START;
-export const ROAD_CENTER_Z = (ROAD_Z_START + ROAD_Z_END) / 2;
-export const ROAD_HALF_WIDTH = 4.6;
+import { ROAD_Z_START, ROAD_Z_END, ROAD_LENGTH, ROAD_CENTER_Z, ROAD_HALF_WIDTH } from "./world-constants";
 
 function color(hex: string): Color { return new Color(hex); }
 function basic(hex: string, extra: Partial<ConstructorParameters<typeof MeshBasicMaterial>[0]> = {}) {
