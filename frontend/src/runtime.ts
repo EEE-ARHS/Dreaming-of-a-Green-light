@@ -81,8 +81,9 @@ async function boot(initialChapterId: string, onReady: () => void): Promise<void
   const selectedDef = CHAPTERS.find((def) => def.id === initialChapterId);
   if (!selectedDef?.create) throw new Error(`Unknown or locked chapter: ${initialChapterId}`);
   const isValley = selectedDef.scene !== "west-egg";
+  const chapter15Bloom = selectedDef.id === "boatsAgainst" ? ENGINE_CONFIG.rendering.chapter15 : undefined;
   postProcessing?.dispose();
-  postProcessing = createScenePostProcessing(engine, scene, camera, isValley);
+  postProcessing = createScenePostProcessing(engine, scene, camera, isValley, chapter15Bloom);
   postProcessingResize?.abort();
   postProcessingResize = new AbortController();
   window.addEventListener("resize", () => postProcessing?.resize(window.innerWidth, window.innerHeight), { signal: postProcessingResize.signal });

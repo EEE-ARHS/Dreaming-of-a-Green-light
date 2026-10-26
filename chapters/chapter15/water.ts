@@ -59,6 +59,14 @@ export interface SeaTuning {
   /** Progress tracking: when the chapter decides the light will not be reached. */
   progressWindow: number;
   progressSample: number;
+  /** How fast a rower must be going before the chapter lets them keep rowing. */
+  stallRate: number;
+  /** How long a rower can coast after a pull before the chapter counts them idle. */
+  pullingGrace: number;
+  /** The fraction of the sea the rower must have covered before the chapter stops pressing. */
+  progressGate: number;
+  /** The longest a rower may keep rowing without moving before the chapter ends. */
+  wallSeconds: number;
   /** The night ends by itself this long after the rowing, and this long in total. */
   idleLimit: number;
   timeLimit: number;

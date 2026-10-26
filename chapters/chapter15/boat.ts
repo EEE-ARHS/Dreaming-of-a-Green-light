@@ -38,11 +38,11 @@ export function createRowboat(): RowboatRig {
   const root = new THREE.Group();
   root.name = "chapter15-boat";
 
-  const hullMaterial = new THREE.MeshStandardMaterial({ color: 0x2a2118, roughness: 0.74, metalness: 0.06, side: THREE.DoubleSide });
-  const trimMaterial = new THREE.MeshStandardMaterial({ color: 0x3c3021, roughness: 0.68, metalness: 0.08 });
-  const oarMaterial = new THREE.MeshStandardMaterial({ color: 0x4a3a26, roughness: 0.6, metalness: 0.1, side: THREE.DoubleSide });
-  const fittingMaterial = new THREE.MeshStandardMaterial({ color: 0x1b1f26, roughness: 0.5, metalness: 0.55 });
-  const figureMaterial = new THREE.MeshStandardMaterial({ color: 0x1a2029, roughness: 0.92, metalness: 0.02 });
+  const hullMaterial = new THREE.MeshStandardMaterial({ color: 0x5a4632, roughness: 0.58, metalness: 0.1, side: THREE.DoubleSide, emissive: 0x1a1008, emissiveIntensity: 0.55 });
+  const trimMaterial = new THREE.MeshStandardMaterial({ color: 0x6a5638, roughness: 0.55, metalness: 0.12 });
+  const oarMaterial = new THREE.MeshStandardMaterial({ color: 0x7a5d3a, roughness: 0.45, metalness: 0.08, side: THREE.DoubleSide, emissive: 0x241608, emissiveIntensity: 0.4 });
+  const fittingMaterial = new THREE.MeshStandardMaterial({ color: 0x526068, roughness: 0.45, metalness: 0.6 });
+  const figureMaterial = new THREE.MeshStandardMaterial({ color: 0x363e48, roughness: 0.9, metalness: 0.05 });
 
   const hull = new THREE.Mesh(taperedHull(), hullMaterial);
   hull.name = "chapter15-hull";
@@ -63,7 +63,9 @@ export function createRowboat(): RowboatRig {
   const oarlockGeometry = new THREE.CylinderGeometry(0.045, 0.055, 0.17, 8);
   const oarShaftGeometry = new THREE.CylinderGeometry(0.028, 0.032, INBOARD + OUTBOARD, 8);
   const oarHandleGeometry = new THREE.CylinderGeometry(0.034, 0.034, 0.3, 8);
-  const bladeGeometry = new THREE.BoxGeometry(0.55, 0.26, 0.03);
+  const bladeGeometry = new THREE.BoxGeometry(0.82, 0.34, 0.04);
+
+  const bladeMaterial = new THREE.MeshStandardMaterial({ color: 0x8a663e, roughness: 0.5, metalness: 0.06, side: THREE.DoubleSide, emissive: 0x442410, emissiveIntensity: 0.7 });
   const collarGeometry = new THREE.CylinderGeometry(0.05, 0.05, 0.12, 8);
 
   const rower = new THREE.Group();
@@ -91,7 +93,7 @@ export function createRowboat(): RowboatRig {
     handle.position.x = side * -(INBOARD - 0.15);
     const collar = new THREE.Mesh(collarGeometry, fittingMaterial);
     collar.rotation.z = (-side * Math.PI) / 2;
-    const blade = new THREE.Mesh(bladeGeometry, oarMaterial);
+    const blade = new THREE.Mesh(bladeGeometry, bladeMaterial);
     blade.position.x = side * BLADE_CENTRE;
     lift.add(shaft, handle, collar, blade);
     root.add(pivot);
