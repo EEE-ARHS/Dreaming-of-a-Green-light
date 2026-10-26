@@ -1,10 +1,12 @@
 import * as THREE from "three";
 import type { ChapterContext, ChapterFlavor, ChapterOutcome } from "../../frontend/src/chapters/types";
-import { PhysicsAggregate, PhysicsMotionType, PhysicsShapeType, type PhysicsBody } from "../../frontend/src/physics";
+import { PhysicsAggregate, PhysicsMotionType, PhysicsShapeType, type HavokPhysics, type PhysicsBody } from "../../frontend/src/physics";
 import { PlayerController } from "../../frontend/src/player-controller";
-import { wallpaperTexture, floorTexture, rugTexture } from "./assets";
 import { crateCounter } from "../../frontend/src/ui";
 import manifest from "./assets/manifest.json";
+import { buildExterior } from "./exterior";
+import { buildRoom } from "./room";
+import { addStaticCollider as createStaticCollider } from "./physics";
 import {
   ROOM_HALF, ROOM_HEIGHT, DOOR_HALF, DOOR_HEIGHT, THRESHOLD_Z,
   type BelongingSpec, BELONGINGS
@@ -445,166 +447,9 @@ export class NicksHouseChapter {
   }
 
   private buildExterior(): void {
-    const root = new THREE.Group();
-    root.name = "nicks-house-west-egg-exterior";
+    const root = buildExterior((object, width, height, depth) => this.addStaticCollider(object, width, height, depth));
     this.exterior = root;
     this.ctx.scene.add(root);
-
-    const gravel = new THREE.MeshStandardMaterial({ color: "#635c50", roughness: 1 });
-    const ash = new THREE.MeshStandardMaterial({ color: "#383a3a", roughness: 1 });
-    const lawn = new THREE.MeshStandardMaterial({ color: "#34452e", roughness: 1 });
-    const lawnDark = new THREE.MeshStandardMaterial({ color: "#263625", roughness: 1 });
-    const hedge = new THREE.MeshStandardMaterial({ color: "#243728", roughness: 0.96 });
-    const leaves = new THREE.MeshStandardMaterial({ color: "#203428", roughness: 0.92 });
-    const leavesLight = new THREE.MeshStandardMaterial({ color: "#334632", roughness: 0.9 });
-    const bark = new THREE.MeshStandardMaterial({ color: "#392b20", roughness: 1 });
-    const fence = new THREE.MeshStandardMaterial({ color: "#c5b99c", roughness: 0.82 });
-    const stone = new THREE.MeshStandardMaterial({ color: "#777365", roughness: 1 });
-    const houseWall = new THREE.MeshStandardMaterial({ color: "#a99b7b", roughness: 0.9 });
-    const roof = new THREE.MeshStandardMaterial({ color: "#292a28", roughness: 0.95 });
-    const windowGlow = new THREE.MeshStandardMaterial({ color: "#c99b55", emissive: "#6e4318", emissiveIntensity: 0.7, roughness: 0.7 });
-    const lampGlow = new THREE.MeshStandardMaterial({ color: "#ffe0a1", emissive: "#ffbb69", emissiveIntensity: 1.7 });
-    const metal = new THREE.MeshStandardMaterial({ color: "#3b3d3a", metalness: 0.55, roughness: 0.58 });
-    const boxGeometry = new THREE.BoxGeometry(1, 1, 1);
-    const sphereGeometry = new THREE.SphereGeometry(1, 12, 8);
-    const cylinderGeometry = new THREE.CylinderGeometry(1, 1, 1, 10);
-
-    const add = (geometry: THREE.BufferGeometry, material: THREE.Material, position: [number, number, number], scale: [number, number, number], name: string) => {
-      const mesh = new THREE.Mesh(geometry, material);
-      mesh.name = name;
-      mesh.position.set(...position);
-      mesh.scale.set(...scale);
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      root.add(mesh);
-      return mesh;
-    };
-    const addBox = (material: THREE.Material, position: [number, number, number], size: [number, number, number], name: string) => add(boxGeometry, material, position, size, name);
-
-    // The long drive starts in the grey Valley and becomes a gravel estate lane.
-    addBox(ash, [0, -0.13, -61], [9.2, 0.12, 25], "valley-roadbed");
-    addBox(gravel, [0, -0.055, -25.5], [7.5, 0.1, 48], "west-egg-gravel-drive");
-    addBox(lawnDark, [0, -0.24, -29], [52, 0.12, 49], "valley-shoulder");
-    addBox(lawn, [0, -0.18, -9], [34, 0.12, 27], "west-egg-lawn");
-    addBox(houseWall, [-2.55, 1.5, -4.16], [2.9, 3, 0.22], "nicks-house-front-left");
-    addBox(houseWall, [2.55, 1.5, -4.16], [2.9, 3, 0.22], "nicks-house-front-right");
-    addBox(houseWall, [0, 2.58, -4.16], [2.3, 0.84, 0.22], "nicks-house-front-lintel");
-    addBox(roof, [0, 3.35, -4.2], [9.2, 0.28, 8.5], "nicks-house-roof-eave");
-    for (const side of [-1, 1]) {
-      addBox(houseWall, [side * 4.12, 1.5, -0.1], [0.22, 3, 8.1], `nicks-house-exterior-side-${side}`);
-      addBox(roof, [side * 3.1, 3.55, -0.1], [3.3, 0.2, 8.5], `nicks-house-roof-slope-${side}`).rotation.z = side * -0.28;
-      addBox(houseWall, [side * 1.55, 1.45, -4.38], [0.16, 2.9, 0.22], `nicks-house-porch-post-${side}`);
-    }
-    addBox(roof, [0, 2.9, -4.42], [3.5, 0.18, 1.1], "nicks-house-porch-roof");
-    addBox(stone, [0, 0.08, -5.0], [3.2, 0.16, 2.6], "nicks-house-front-steps");
-    const porchLight = new THREE.PointLight("#ffd39a", 9, 12, 2);
-    porchLight.position.set(0, 2.4, -4.9);
-    root.add(porchLight);
-    add(sphereGeometry, lampGlow, [0, 2.4, -4.68], [0.2, 0.28, 0.2], "nicks-house-porch-lamp");
-    addBox(ash, [0, -0.1, -61], [38, 0.1, 25], "ash-field");
-    const exteriorGround = new THREE.Mesh(
-      new THREE.BoxGeometry(50, 0.12, 70),
-      new THREE.MeshBasicMaterial({ visible: false })
-    );
-    exteriorGround.name = "west-egg-exterior-collision-ground";
-    exteriorGround.position.set(0, -0.11, -39);
-    root.add(exteriorGround);
-    this.addStaticCollider(exteriorGround, 50, 0.12, 70);
-    addBox(ash, [-11, -0.06, -54], [26, 0.12, 18], "valley-western-ash-shoulder");
-    addBox(ash, [11, -0.06, -54], [26, 0.12, 18], "valley-eastern-ash-shoulder");
-
-    // Ash heaps, scrub, and the bare utility poles along the road out of the Valley.
-    for (let index = 0; index < 16; index++) {
-      const side = index % 2 === 0 ? -1 : 1;
-      const z = -39 - Math.floor(index / 2) * 4.1;
-      const x = side * (7.8 + (index % 3) * 1.8);
-      add(sphereGeometry, index % 3 === 0 ? stone : ash, [x, 0.05, z], [2.1 + (index % 3) * 0.7, 0.65 + (index % 2) * 0.2, 2.8], `valley-ash-heap-${index}`);
-      for (let sprig = 0; sprig < 2; sprig++) {
-        const scrub = add(cylinderGeometry, bark, [x + (sprig ? 0.55 : -0.48), 0.48, z + sprig * 0.35], [0.09, 0.95, 0.09], `ash-scrub-${index}-${sprig}`);
-        scrub.rotation.z = (sprig ? -1 : 1) * 0.28;
-      }
-    }
-    for (let index = 0; index < 4; index++) {
-      const z = -59 + index * 11;
-      add(cylinderGeometry, metal, [-10, 3.4, z], [0.11, 6.8, 0.11], `valley-telephone-pole-${index}`);
-      addBox(metal, [-10, 6.55, z], [1.4, 0.1, 0.1], `valley-pole-arm-${index}`);
-      if (index < 3) {
-        const wire = add(new THREE.BufferGeometry().setFromPoints([
-          new THREE.Vector3(-10, 6.45, z), new THREE.Vector3(-10, 6.1, z + 11),
-        ]), new THREE.LineBasicMaterial({ color: "#111211" }), [0, 0, 0], [1, 1, 1], `valley-wire-${index}`);
-        wire.castShadow = false;
-      }
-    }
-
-    // A weathered roadside sign and the watchful eyes above the ash heaps.
-    addBox(metal, [-8.4, 0.9, -43], [0.18, 1.8, 0.18], "garage-sign-post");
-    addBox(stone, [-8.4, 1.85, -43], [2.8, 0.72, 0.12], "wilson-garage-sign");
-    addBox(windowGlow, [-8.4, 1.85, -42.92], [2.35, 0.35, 0.035], "wilson-garage-sign-lettering");
-    add(cylinderGeometry, metal, [-16, 4.1, -53], [0.34, 8.2, 0.38], "eckleburg-billboard-post");
-    addBox(roof, [-16, 9.2, -53], [12, 5.1, 0.55], "eckleburg-billboard");
-    addBox(stone, [-16, 9.2, -52.68], [11.3, 4.4, 0.08], "eckleburg-board-face");
-    for (const eyeX of [-18.4, -13.6]) {
-      add(sphereGeometry, windowGlow, [eyeX, 9.55, -52.5], [1.55, 0.78, 0.16], "eckleburg-eye");
-      add(sphereGeometry, metal, [eyeX, 9.55, -52.3], [0.34, 0.62, 0.11], "eckleburg-pupil");
-    }
-
-    // West Egg's estate entrance: clipped hedges, a pale fence, and warm lamps.
-    for (const side of [-1, 1]) {
-      addBox(hedge, [side * 5.7, 0.82, -9.2], [0.72, 1.65, 0.72], `gate-pillar-${side}`);
-      addBox(stone, [side * 5.7, 1.75, -9.2], [1.05, 0.25, 1.05], `gate-cap-${side}`);
-      for (let index = 0; index < 10; index++) {
-        const z = -12.5 - index * 1.65;
-        addBox(hedge, [side * 5.8, 0.68, z], [0.55, 1.35, 1.35], `west-egg-hedge-${side}-${index}`);
-        if (index < 8) {
-          addBox(fence, [side * 7.1, 0.62, z], [0.12, 1.15, 0.12], `estate-fence-post-${side}-${index}`);
-          addBox(fence, [side * 7.1, 0.38, z - 0.55], [0.12, 0.1, 1.1], `estate-fence-rail-${side}-${index}`);
-        }
-      }
-      for (let index = 0; index < 8; index++) {
-        const z = -13 - index * 5.2;
-        add(cylinderGeometry, bark, [side * (10.5 + (index % 2) * 1.2), 2.1, z], [0.42, 4.2, 0.42], `west-egg-tree-trunk-${side}-${index}`);
-        add(sphereGeometry, index % 2 ? leaves : leavesLight, [side * (10.5 + (index % 2) * 1.2), 4.5, z], [2.5, 3.1, 2.4], `west-egg-tree-crown-${side}-${index}`);
-        add(sphereGeometry, leaves, [side * (9.6 + (index % 2) * 1.2), 4.05, z - 0.9], [1.7, 2.1, 1.8], `west-egg-tree-crown-low-${side}-${index}`);
-      }
-      for (const z of [-14, -23, -32]) {
-        add(cylinderGeometry, metal, [side * 4.7, 1.8, z], [0.09, 3.6, 0.09], `west-egg-lamppost-${side}-${z}`);
-        add(sphereGeometry, lampGlow, [side * 4.7, 3.68, z], [0.32, 0.42, 0.32], `west-egg-lamp-${side}-${z}`);
-        const light = new THREE.PointLight("#ffc987", 3.2, 8, 2);
-        light.position.set(side * 4.7, 3.7, z);
-        root.add(light);
-      }
-    }
-
-    // Distant Long Island houses glow through the trees on the approach.
-    for (const [index, side] of [-1, 1].entries()) {
-      const x = side * 15;
-      const z = -23 - index * 9;
-      addBox(houseWall, [x, 1.8, z], [7.2, 3.6, 5.2], `west-egg-house-${index}`);
-      addBox(roof, [x, 3.9, z], [8.1, 0.55, 5.9], `west-egg-roof-${index}`);
-      for (const windowX of [-1.7, 1.7]) addBox(windowGlow, [x + windowX, 2.05, z - 2.64], [0.9, 1.2, 0.06], `west-egg-window-${index}-${windowX}`);
-      addBox(houseWall, [x, 0.45, z - 3.2], [2.5, 0.9, 1.8], `west-egg-porch-${index}`);
-    }
-
-    // Gatsby's enormous house sits farther along the shore, visible above the estate trees.
-    addBox(houseWall, [17, 4.3, -42], [15, 8.6, 10], "gatsby-mansion");
-    addBox(roof, [17, 9, -42], [17, 1, 12], "gatsby-mansion-roof");
-    for (const windowX of [11, 15, 19, 23]) addBox(windowGlow, [windowX, 4.8, -47.1], [1.1, 2.1, 0.08], `gatsby-mansion-window-${windowX}`);
-    const bay = new THREE.MeshStandardMaterial({ color: "#111d26", roughness: 0.3, metalness: 0.12 });
-    addBox(bay, [0, -0.1, -90], [180, 0.25, 30], "long-island-sound");
-    const moon = add(sphereGeometry, new THREE.MeshBasicMaterial({ color: "#d5cbb2" }), [0, 18, -86], [3.5, 3.5, 3.5], "west-egg-moon");
-    moon.castShadow = false;
-
-    const starPositions = new Float32Array(360 * 3);
-    for (let index = 0; index < 360; index++) {
-      starPositions[index * 3] = (Math.random() - 0.5) * 150;
-      starPositions[index * 3 + 1] = 18 + Math.random() * 45;
-      starPositions[index * 3 + 2] = -82 + Math.random() * 42;
-    }
-    const starGeometry = new THREE.BufferGeometry();
-    starGeometry.setAttribute("position", new THREE.Float32BufferAttribute(starPositions, 3));
-    const stars = new THREE.Points(starGeometry, new THREE.PointsMaterial({ color: "#e6dfcb", size: 0.22, sizeAttenuation: true, transparent: true, opacity: 0.72 }));
-    stars.name = "west-egg-stars";
-    root.add(stars);
   }
 
   private buildCarAndBelongings(): void {
@@ -785,167 +630,18 @@ export class NicksHouseChapter {
     }
   }
 
-  private requirePhysics() {
+  private requirePhysics(): HavokPhysics {
     const physics = this.ctx.physics;
     if (!physics) throw new Error("Nick's House requires Havok physics.");
     return physics;
   }
 
   private addStaticCollider(object: THREE.Object3D, width: number, height: number, depth: number): void {
-    const aggregate = new PhysicsAggregate(object, PhysicsShapeType.BOX, {
-      mass: 0,
-      friction: 0.72,
-      restitution: 0.04,
-      extents: new THREE.Vector3(width, height, depth),
-    }, this.requirePhysics());
-    aggregate.body.setMotionType(PhysicsMotionType.STATIC);
-    this.physicsAggregates.push(aggregate);
+    createStaticCollider(this.requirePhysics(), this.physicsAggregates, object, width, height, depth);
   }
 
   private buildRoom(): THREE.Group {
-    const room = new THREE.Group();
-    room.name = "nicksHouseRoom";
-
-    const wallpaper = wallpaperTexture();
-    const floorMap = floorTexture();
-    const rugMap = rugTexture();
-    const wallMaterial = new THREE.MeshStandardMaterial({ map: wallpaper, roughness: 0.94 });
-    const trimMaterial = new THREE.MeshStandardMaterial({ color: "#d8cdb2", roughness: 0.8 });
-    const floorMaterial = new THREE.MeshStandardMaterial({ map: floorMap, roughness: 0.9 });
-    const ceilingMaterial = new THREE.MeshStandardMaterial({ color: "#cdc3ab", roughness: 1 });
-    const woodMaterial = new THREE.MeshStandardMaterial({ color: "#4a3121", roughness: 0.72 });
-    const rugMaterial = new THREE.MeshStandardMaterial({ map: rugMap, roughness: 1 });
-    const glassMaterial = new THREE.MeshStandardMaterial({
-      color: "#26313d",
-      emissive: "#b9cede",
-      emissiveIntensity: 0.42,
-      roughness: 0.35,
-      metalness: 0.15,
-    });
-
-    const box = (
-      width: number,
-      height: number,
-      depth: number,
-      material: THREE.Material,
-      x: number,
-      y: number,
-      z: number
-    ): THREE.Mesh => {
-      const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), material);
-      mesh.position.set(x, y, z);
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      room.add(mesh);
-      return mesh;
-    };
-
-    const solid = (
-      width: number,
-      height: number,
-      depth: number,
-      material: THREE.Material,
-      x: number,
-      y: number,
-      z: number
-    ): THREE.Mesh => {
-      const mesh = box(width, height, depth, material, x, y, z);
-      this.addStaticCollider(mesh, width, height, depth);
-      return mesh;
-    };
-
-    // Floor, ceiling and the three standing walls; the fourth side stays open to the camera.
-    solid(ROOM_HALF * 2, 0.12, ROOM_HALF * 2, floorMaterial, 0, 0, 0).receiveShadow = true;
-    solid(ROOM_HALF * 2, 0.1, ROOM_HALF * 2, ceilingMaterial, 0, ROOM_HEIGHT, 0);
-
-    const backWidth = ROOM_HALF - DOOR_HALF;
-    solid(backWidth, ROOM_HEIGHT, 0.14, wallMaterial, -(DOOR_HALF + backWidth / 2), ROOM_HEIGHT / 2, -ROOM_HALF);
-    solid(backWidth, ROOM_HEIGHT, 0.14, wallMaterial, DOOR_HALF + backWidth / 2, ROOM_HEIGHT / 2, -ROOM_HALF);
-    solid(DOOR_HALF * 2, ROOM_HEIGHT - DOOR_HEIGHT, 0.14, wallMaterial, 0, (ROOM_HEIGHT + DOOR_HEIGHT) / 2, -ROOM_HALF);
-    solid(0.14, ROOM_HEIGHT, ROOM_HALF * 2, wallMaterial, -ROOM_HALF, ROOM_HEIGHT / 2, 0);
-    solid(0.14, ROOM_HEIGHT, ROOM_HALF * 2, wallMaterial, ROOM_HALF, ROOM_HEIGHT / 2, 0);
-
-    // Dado rail and skirting, so the parlor reads as 1930s rather than a grey test room.
-    for (const wallX of [-ROOM_HALF + 0.1, ROOM_HALF - 0.1]) {
-      box(0.06, 0.09, ROOM_HALF * 2, trimMaterial, wallX, 0.98, 0);
-      box(0.06, 0.16, ROOM_HALF * 2, trimMaterial, wallX, 0.08, 0);
-    }
-    for (const segmentX of [-(DOOR_HALF + backWidth / 2), DOOR_HALF + backWidth / 2]) {
-      box(backWidth, 0.09, 0.06, trimMaterial, segmentX, 0.98, -ROOM_HALF + 0.1);
-      box(backWidth, 0.16, 0.06, trimMaterial, segmentX, 0.08, -ROOM_HALF + 0.1);
-    }
-
-    // Door casing and a glimpse of the porch beyond it.
-    solid(0.1, DOOR_HEIGHT, 0.16, trimMaterial, -DOOR_HALF, DOOR_HEIGHT / 2, -ROOM_HALF);
-    solid(0.1, DOOR_HEIGHT, 0.16, trimMaterial, DOOR_HALF, DOOR_HEIGHT / 2, -ROOM_HALF);
-    solid(DOOR_HALF * 2 + 0.1, 0.12, 0.16, trimMaterial, 0, DOOR_HEIGHT, -ROOM_HALF);
-    solid(2.6, 0.1, 2.6, floorMaterial, 0, -0.02, -ROOM_HALF - 1.4);
-
-    // Sash window on the right-hand wall.
-    box(0.06, 1.15, 1.35, glassMaterial, ROOM_HALF - 0.08, 1.75, 0.2);
-    box(0.08, 0.08, 1.5, trimMaterial, ROOM_HALF - 0.1, 2.35, 0.2);
-    box(0.08, 0.08, 1.5, trimMaterial, ROOM_HALF - 0.1, 1.18, 0.2);
-    box(0.08, 1.2, 0.08, trimMaterial, ROOM_HALF - 0.1, 1.76, -0.55);
-    box(0.08, 1.2, 0.08, trimMaterial, ROOM_HALF - 0.1, 1.76, 0.95);
-    box(0.08, 1.2, 0.05, trimMaterial, ROOM_HALF - 0.1, 1.76, 0.2);
-
-    // Rug.
-    const rug = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 2.6), rugMaterial);
-    rug.rotation.x = -Math.PI / 2;
-    rug.position.set(0, 0.075, 0.6);
-    rug.receiveShadow = true;
-    room.add(rug);
-
-    // Table, chair and lamp. Every piece is also a static collider.
-    const tableX = -2.4;
-    const tableZ = -2.9;
-    solid(1.6, 0.09, 0.95, woodMaterial, tableX, 0.78, tableZ);
-    for (const [dx, dz] of [[-0.66, -0.36], [0.66, -0.36], [-0.66, 0.36], [0.66, 0.36]] as const) {
-      solid(0.09, 0.74, 0.09, woodMaterial, tableX + dx, 0.37, tableZ + dz);
-    }
-    solid(0.4, 0.3, 0.3, new THREE.MeshStandardMaterial({ color: "#8c7a5b", roughness: 0.9 }), tableX + 0.35, 0.97, tableZ);
-
-    solid(0.55, 0.08, 0.55, woodMaterial, 2.2, 0.46, -3.0);
-    solid(0.55, 0.62, 0.07, woodMaterial, 2.2, 0.76, -3.24);
-    for (const [dx, dz] of [[-0.22, -0.22], [0.22, -0.22], [-0.22, 0.22], [0.22, 0.22]] as const) {
-      solid(0.06, 0.44, 0.06, woodMaterial, 2.2 + dx, 0.22, -3.0 + dz);
-    }
-
-    const lampX = 3.05;
-    const lampZ = -0.2;
-    solid(0.42, 0.1, 0.42, woodMaterial, lampX, 0.1, lampZ);
-    solid(0.07, 1.35, 0.07, woodMaterial, lampX, 0.78, lampZ);
-    const shadeMaterial = new THREE.MeshStandardMaterial({
-      color: "#e4c48d",
-      emissive: "#ffbf72",
-      emissiveIntensity: 0.9,
-      roughness: 0.8,
-      side: THREE.DoubleSide,
-    });
-    const shade = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.4, 0.36, 20, 1, true), shadeMaterial);
-    shade.position.set(lampX, 1.5, lampZ);
-    room.add(shade);
-
-    // Two small frames and a mirror on the back wall.
-    const frameMaterial = new THREE.MeshStandardMaterial({ color: "#3d2a1b", roughness: 0.6 });
-    const canvasMaterial = new THREE.MeshStandardMaterial({ color: "#b7a27a", roughness: 0.95 });
-    box(0.66, 0.86, 0.05, frameMaterial, -3.0, 1.8, -ROOM_HALF + 0.1);
-    box(0.54, 0.74, 0.03, canvasMaterial, -3.0, 1.8, -ROOM_HALF + 0.14);
-    box(0.6, 0.5, 0.05, frameMaterial, 2.9, 1.85, -ROOM_HALF + 0.1);
-    box(0.48, 0.38, 0.03, canvasMaterial, 2.9, 1.85, -ROOM_HALF + 0.14);
-
-    // Warm tungsten light in the parlor plus a dim lamp over the porch.
-    const lampLight = new THREE.PointLight("#ffc98a", 16, 16, 2);
-    lampLight.position.set(lampX - 0.2, 1.7, lampZ);
-    room.add(lampLight);
-    const doorLight = new THREE.PointLight("#ffd7a4", 7, 10, 2);
-    doorLight.position.set(0, 2.2, -ROOM_HALF - 0.6);
-    room.add(doorLight);
-    const fillLight = new THREE.PointLight("#9fb0c4", 3.2, 14, 2);
-    fillLight.position.set(0, 2.4, 5.6);
-    room.add(fillLight);
-
-    return room;
+    return buildRoom((object, width, height, depth) => this.addStaticCollider(object, width, height, depth));
   }
 
   private spawnCrate(spec: BelongingSpec, x: number, y: number, z: number): void {
