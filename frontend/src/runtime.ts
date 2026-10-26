@@ -243,7 +243,7 @@ function endGame(outcome: ChapterOutcome) {
   const flavor = chapter.flavor(outcome === "win" ? "win" : "lose");
   endingKicker.textContent = flavor.kicker; endingTitle.textContent = flavor.title; endingBody.innerHTML = flavor.body;
   endingQuote.textContent = flavor.quote; endingCite.textContent = flavor.cite;
-  resultStamp.textContent = outcome === "win" ? "NICE!" : "OOPS!";
+  resultStamp.textContent = flavor.stamp ?? (outcome === "win" ? "NICE!" : "OOPS!");
   gsap.fromTo(resultStamp, { scale: reducedMotion ? 1 : 0.6, autoAlpha: reducedMotion ? 1 : 0, rotation: reducedMotion ? 0 : -3 }, { scale: 1, autoAlpha: 1, rotation: 0, textShadow: outcome === "win" ? "0 0 30px rgba(255,238,214,.4)" : "0 0 30px rgba(255,107,97,.4)", duration: uiDuration(0.75), ease: reducedMotion ? "none" : "back.out(1.6)" });
   const resultContent = resultScreen.querySelectorAll<HTMLElement>(".deco > *");
   if (!reducedMotion) gsap.fromTo(resultContent, { autoAlpha: 0, y: 18, filter: "blur(5px)" }, { autoAlpha: 1, y: 0, filter: "blur(0px)", duration: 0.65, stagger: 0.055, ease: "power3.out" });
