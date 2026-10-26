@@ -3,7 +3,7 @@
   "name": "NICK'S HOUSE",
   "blurb": "Nick has finally brought his things home to West Egg. Unpack the car, carry each belonging inside, and make the little house your own.",
   "command": "WELCOME HOME",
-  "how": "WASD to walk · Mouse to look · Click and drag belongings from the car into the house · ESC for chapters",
+  "how": "WASD to walk · Mouse to look · E opens the trunk, then picks up or sets down belongings · ESC for chapters",
   "duration": null,
   "models": {
     "format": "glb or gltf; paths resolve from the frontend public root",

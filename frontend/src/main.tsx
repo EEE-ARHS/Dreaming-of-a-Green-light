@@ -367,7 +367,7 @@ function App() {
       <div id="crosshair" aria-hidden="true" />
       <footer>
         <div className="chapter"><span className="chapter-no">CHAPTERS</span><span className="chapter-note">Silver-screen stories · Three.js</span></div>
-        <div className="keys">{selectedChapter === "nicksHouse" ? <><span><b>WASD</b> walk</span><span><b>MOUSE</b> look</span><span><b>CLICK + DRAG</b> unpack</span><span><b>ESC</b> chapters</span></> : <><span><b>W / ↑</b> throttle</span><span><b>S / ↓</b> brake</span><span><b>A</b> right</span><span><b>D</b> left</span><span><b>SPACE</b> skid</span><span><b>C</b> view</span><span><b>R</b> replay</span><span><b>P</b> colliders</span><span><b>M</b> mute</span><span><b>ESC</b> menu</span></>}</div>
+        <div className="keys">{selectedChapter === "nicksHouse" ? <><span><b>WASD</b> walk</span><span><b>MOUSE</b> look</span><span><b>E</b> trunk / carry</span><span><b>ESC</b> chapters</span></> : <><span><b>W / ↑</b> throttle</span><span><b>S / ↓</b> brake</span><span><b>A</b> right</span><span><b>D</b> left</span><span><b>SPACE</b> skid</span><span><b>C</b> view</span><span><b>R</b> replay</span><span><b>P</b> colliders</span><span><b>M</b> mute</span><span><b>ESC</b> menu</span></>}</div>
       </footer>
     </main>
 

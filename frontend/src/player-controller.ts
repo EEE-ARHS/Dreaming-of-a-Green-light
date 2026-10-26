@@ -38,6 +38,7 @@ export class PlayerController {
   private readonly driveAngularVelocity = new Vector3();
   private readonly driveDeltaRotation = new Quaternion();
   private readonly driveAxis = new Vector3();
+  carrying = false;
 
   constructor(private readonly scene: Scene, private readonly physics: HavokPhysics) {
     for (const def of PART_DEFS) {
@@ -148,6 +149,10 @@ export class PlayerController {
     this.yaw = Math.atan2(-direction.x, -direction.z);
   }
 
+  setCarrying(carrying: boolean): void {
+    this.carrying = carrying;
+  }
+
   /** Move in camera-relative WASD direction, keeping the character inside the chapter bounds. */
   move(forwardInput: number, sideInput: number, dt: number): number {
     const forward = new Vector3(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
@@ -210,10 +215,11 @@ export class PlayerController {
       const suffix = side < 0 ? "L" : "R";
       const shoulder = torso.clone().add(local(side * 0.215, 0.16, 0, torsoQ));
       const swing = Math.sin(phase + (side < 0 ? 0 : Math.PI)) * 0.56 * this.walkBlend;
-      const upperQ = yawQ.clone().multiply(new Quaternion().setFromAxisAngle(X_AXIS, swing));
+      const carryArm = this.carrying ? -0.85 : 0;
+      const upperQ = yawQ.clone().multiply(new Quaternion().setFromAxisAngle(X_AXIS, swing + carryArm));
       const elbow = shoulder.clone().add(local(0, -0.3, 0, upperQ));
       const upper = shoulder.clone().add(local(0, -0.15, 0, upperQ));
-      const foreQ = yawQ.clone().multiply(new Quaternion().setFromAxisAngle(X_AXIS, swing + 0.2));
+      const foreQ = yawQ.clone().multiply(new Quaternion().setFromAxisAngle(X_AXIS, swing + 0.2 + (this.carrying ? -0.45 : 0)));
       const fore = elbow.clone().add(local(0, -0.135, 0, foreQ));
       this.setPart(`armU${suffix}`, upper, upperQ);
       this.setPart(`armF${suffix}`, fore, foreQ);
