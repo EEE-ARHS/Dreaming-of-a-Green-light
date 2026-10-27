@@ -1,5 +1,13 @@
 import nicksHouseManifest from "../../../chapters/chapter02/assets/manifest.json";
 import crashDriveManifest from "../../../chapters/chapter06/assets/manifest.json";
+import boatsAgainstManifest from "../../../chapters/chapter15/assets/manifest.json";
+
+/** What the running chapter puts in the corner of the screen, and under it its controls. */
+export interface ChapterHud {
+  brand: string;
+  sub: string;
+  keys: { key: string; label: string }[];
+}
 
 export interface ChapterCatalogEntry {
   id: string;
@@ -12,6 +20,7 @@ export interface ChapterCatalogEntry {
   locked?: boolean;
   scene?: "valley" | "west-egg";
   firstPerson?: boolean;
+  hud?: ChapterHud;
 }
 
 export const CHAPTER_CATALOG: ChapterCatalogEntry[] = [
@@ -26,6 +35,16 @@ export const CHAPTER_CATALOG: ChapterCatalogEntry[] = [
     locked: false,
     scene: "west-egg",
     firstPerson: true,
+    hud: {
+      brand: "NICK'S HOUSE",
+      sub: "WEST EGG · 1922",
+      keys: [
+        { key: "WASD", label: "walk" },
+        { key: "MOUSE", label: "look" },
+        { key: "E", label: "trunk / carry" },
+        { key: "ESC", label: "chapters" },
+      ],
+    },
   },
   {
     id: "chapter02",
@@ -90,4 +109,26 @@ export const CHAPTER_CATALOG: ChapterCatalogEntry[] = [
       locked: true,
     };
   }),
+  {
+    id: "boatsAgainst",
+    slot: boatsAgainstManifest.slot,
+    name: boatsAgainstManifest.name,
+    blurb: boatsAgainstManifest.blurb,
+    command: boatsAgainstManifest.command,
+    how: boatsAgainstManifest.how,
+    duration: boatsAgainstManifest.duration,
+    locked: false,
+    scene: "west-egg",
+    hud: {
+      brand: "THE SOUND",
+      sub: "CHAPTER XV · 1922",
+      keys: [
+        { key: "DRAG", label: "down to pull both oars" },
+        { key: "DRAG", label: "up to recover" },
+        { key: "DRAG", label: "aside to steer" },
+        { key: "ESC", label: "chapters" },
+        { key: "M", label: "mute" },
+      ],
+    },
+  },
 ];

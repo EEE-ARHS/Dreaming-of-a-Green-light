@@ -10,6 +10,19 @@ const RuntimeCanvas = lazy(() => import("./runtime-canvas").then(({ RuntimeCanva
 const TitleScene = lazy(() => import("./title-scene").then(({ TitleScene }) => ({ default: TitleScene })));
 gsap.registerPlugin(useGSAP);
 const OPENING_CREDITS = ["GITHUB", "FREEBUFF", "COMPANY THREE", "COMPANY FOUR", "COMPANY FIVE"];
+/** Controls shown under the HUD when a chapter does not bring its own. */
+const DRIVING_HUD_KEYS = [
+  { key: "W / ↑", label: "throttle" },
+  { key: "S / ↓", label: "brake" },
+  { key: "A", label: "right" },
+  { key: "D", label: "left" },
+  { key: "SPACE", label: "skid" },
+  { key: "C", label: "view" },
+  { key: "R", label: "replay" },
+  { key: "P", label: "colliders" },
+  { key: "M", label: "mute" },
+  { key: "ESC", label: "menu" },
+];
 
 function App() {
   const rootRef = useRef<HTMLDivElement>(null);
@@ -336,6 +349,9 @@ function App() {
   }, { dependencies: [chapterError], scope: rootRef, revertOnUpdate: true });
 
   const activeChapter = CHAPTER_OPTIONS[chapterIndex];
+  const playingChapter = selectedChapter ? CHAPTER_OPTIONS.find((chapter) => chapter.id === selectedChapter) : undefined;
+  const playingHud = playingChapter?.hud;
+  const hudKeys = playingHud?.keys ?? DRIVING_HUD_KEYS;
   const moveChapter = (direction: number) => {
     setChapterIndex((index) => Math.max(0, Math.min(CHAPTER_OPTIONS.length - 1, index + direction)));
   };
@@ -349,9 +365,9 @@ function App() {
     <div id="impactFlash" aria-hidden="true" />
     <div id="letterbox" aria-hidden="true"><div /><div /></div>
 
-    <main id="hud" className={selectedChapter === "nicksHouse" ? "first-person-hud" : ""}>
+    <main id="hud" className={playingChapter?.firstPerson ? "first-person-hud" : ""}>
       <header>
-        <div className="brand"><span className="brand-title">{selectedChapter === "nicksHouse" ? "NICK'S HOUSE" : "CHAPTERS"}</span><span className="brand-sub">{selectedChapter === "nicksHouse" ? "WEST EGG · 1922" : "THE VALLEY OF ASHES"}</span></div>
+        <div className="brand"><span className="brand-title">{playingHud?.brand ?? "CHAPTERS"}</span><span className="brand-sub">{playingHud?.sub ?? "THE VALLEY OF ASHES"}</span></div>
         <div className="gauges">
           <div className="speedo" id="speedGauge"><span id="speedValue">0</span><span className="unit">MPH</span></div>
           <div className="gauge-meta">
@@ -367,7 +383,7 @@ function App() {
       <div id="crosshair" aria-hidden="true" />
       <footer>
         <div className="chapter"><span className="chapter-no">CHAPTERS</span><span className="chapter-note">Silver-screen stories · Three.js</span></div>
-        <div className="keys">{selectedChapter === "nicksHouse" ? <><span><b>WASD / ↑↓←→</b> walk</span><span><b>I J K L</b> look</span><span><b>E</b> trunk / carry / set down</span><span><b>Hold left mouse</b> drag items / open doors</span><span><b>ESC</b> chapters</span></> : <><span><b>W / ↑</b> throttle</span><span><b>S / ↓</b> brake</span><span><b>A / ←</b> left</span><span><b>D / →</b> right</span><span><b>SPACE</b> skid</span><span><b>R</b> replay</span><span><b>P</b> colliders</span><span><b>M</b> mute</span><span><b>ESC</b> menu</span></>}</div>
+        <div className="keys">{selectedChapter === "nicksHouse" ? <><span><b>WASD / ↑↓←→</b> walk</span><span><b>I J K L</b> look</span><span><b>E</b> trunk / carry / set down</span><span><b>Hold left mouse</b> drag items / open doors</span><span><b>ESC</b> chapters</span></> : hudKeys.map((entry) => <span key={`${entry.key}-${entry.label}`}><b>{entry.key}</b> {entry.label}</span>)}</div>
       </footer>
     </main>
 

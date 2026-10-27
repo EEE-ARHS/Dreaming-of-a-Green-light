@@ -4,6 +4,7 @@ import { defineConfig } from "vite";
 const threeEntry = fileURLToPath(new URL("./node_modules/three/build/three.module.js", import.meta.url));
 
 export default defineConfig({
+  root: "./",
   resolve: {
     alias: [
       { find: /^three\/examples\/jsm\//, replacement: fileURLToPath(new URL("./node_modules/three/examples/jsm/", import.meta.url)) },

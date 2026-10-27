@@ -16,6 +16,11 @@ export const ENGINE_CONFIG = {
       bloomRadius: 0.58,
       bloomThreshold: 0.58,
     },
+    chapter15: {
+      bloomStrength: 0.35,
+      bloomRadius: 0.55,
+      bloomThreshold: 0.55,
+    },
   },
   physics: {
     defaultTimeStep: 1 / 12,

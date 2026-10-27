@@ -11,6 +11,8 @@ export interface ChapterFlavor {
   body: string;
   quote: string;
   cite: string;
+  /** Optional stamp shown over the ending, when the chapter's result is not "NICE!" or "OOPS!". */
+  stamp?: string;
 }
 
 export type ChapterOutcome = "win" | "lose" | "pending";

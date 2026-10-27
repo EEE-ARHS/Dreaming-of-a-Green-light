@@ -1,0 +1,26 @@
+{
+  "slot": "CHAPTER 15",
+  "name": "BOATS AGAINST THE CURRENT",
+  "blurb": "Alone on the black Sound with the oars in your hands, row for the green light at the end of Daisy's dock. The water is moving the other way, and it will not be argued with.",
+  "command": "PULL FOR THE LIGHT",
+  "how": "Drag the pointer down to pull both oars through the water · angle the drag left or right to pull harder on one oar and steer · drag forward to recover, and the blades rise clear of the water · ESC for chapters",
+  "duration": null,
+  "flavor": {
+    "win": {
+      "stamp": "THE GREEN LIGHT",
+      "kicker": "CHAPTER XV · THE SOUND",
+      "title": "THE GREEN LIGHT",
+      "body": "The blades bite and the boat goes on and the light grows until it is a lamp on a wooden post, and the water is shallow enough to touch. {closest} Daisy's dock has never been this near.",
+      "quote": "He stretched out his arms toward the dark water in a curious way.",
+      "cite": "F. Scott Fitzgerald, The Great Gatsby"
+    },
+    "lose": {
+      "stamp": "BORNE BACK",
+      "kicker": "CHAPTER XV · THE SOUND",
+      "title": "BOATS AGAINST THE CURRENT",
+      "body": "Every stroke spends itself against the water and the dark keeps its distance. The green light burns at the end of Daisy's dock, exactly as far away as it was when you first took up the oars. {closest} The current lets the boat back down the way it came, and the Sound closes over the wake as though no one had ever rowed there at all.",
+      "quote": "So we beat on, boats against the current, borne back ceaselessly into the past.",
+      "cite": "F. Scott Fitzgerald, The Great Gatsby"
+    }
+  }
+}
