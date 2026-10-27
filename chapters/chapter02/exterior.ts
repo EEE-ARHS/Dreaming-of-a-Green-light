@@ -41,6 +41,21 @@ export function buildExterior(addStaticCollider: AddStaticCollider): THREE.Group
   addBox(gravel, [0, -0.055, -25.5], [7.5, 0.1, 48], "west-egg-gravel-drive");
   addBox(lawnDark, [0, -0.24, -29], [52, 0.12, 49], "valley-shoulder");
   addBox(lawn, [0, -0.18, -9], [34, 0.12, 27], "west-egg-lawn");
+
+  // Invisible physics walls keep Nick near the estate while leaving the approach open.
+  const boundaryMaterial = new THREE.MeshBasicMaterial({ visible: false });
+  const addBoundary = (position: [number, number, number], size: [number, number, number], name: string) => {
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(...size), boundaryMaterial);
+    wall.name = name;
+    wall.position.set(...position);
+    wall.visible = false;
+    root.add(wall);
+    addStaticCollider(wall, ...size);
+  };
+  addBoundary([-17, 3, -23], [0.5, 6, 52], "west-egg-invisible-west-boundary");
+  addBoundary([17, 3, -23], [0.5, 6, 52], "west-egg-invisible-east-boundary");
+  addBoundary([0, 3, 2.5], [34.5, 6, 0.5], "west-egg-invisible-south-boundary");
+  addBoundary([0, 3, -48.5], [34.5, 6, 0.5], "west-egg-invisible-north-boundary");
     addBox(houseWall, [-2.55, 1.5, -4.16], [2.9, 3, 0.22], "nicks-house-front-left");
     addBox(houseWall, [2.55, 1.5, -4.16], [2.9, 3, 0.22], "nicks-house-front-right");
     addBox(houseWall, [0, 2.58, -4.16], [2.3, 0.84, 0.22], "nicks-house-front-lintel");
@@ -81,7 +96,30 @@ export function buildExterior(addStaticCollider: AddStaticCollider): THREE.Group
         light.position.set(side * 4.7, 3.7, z);
         root.add(light);
       }
-    }  // Distant Long Island houses glow through the trees on the approach.
+    }
+
+  // Layer a wooded perimeter around the estate, leaving the drive and front lawn open.
+  for (const side of [-1, 1] as const) {
+    for (let index = 0; index < 10; index++) {
+      const x = side * (9.4 + (index % 3) * 3.3);
+      const z = -3.5 - index * 7.1;
+      const trunkHeight = 3.4 + (index % 4) * 0.42;
+      const canopyY = trunkHeight + 1.6;
+      const canopyScale = 2.1 + (index % 3) * 0.28;
+      add(cylinderGeometry, bark, [x, trunkHeight / 2, z], [0.3 + (index % 2) * 0.07, trunkHeight, 0.3 + (index % 2) * 0.07], `west-egg-wood-trunk-${side}-${index}`);
+      add(sphereGeometry, index % 2 ? leavesLight : leaves, [x, canopyY, z], [canopyScale, 2.8, canopyScale], `west-egg-wood-canopy-${side}-${index}`);
+      add(sphereGeometry, leaves, [x - side * 0.9, canopyY - 0.55, z - 0.75], [1.5, 1.7, 1.6], `west-egg-wood-canopy-left-${side}-${index}`);
+      add(sphereGeometry, index % 2 ? leaves : leavesLight, [x + side * 0.85, canopyY - 0.35, z + 0.8], [1.6, 1.9, 1.7], `west-egg-wood-canopy-right-${side}-${index}`);
+
+      for (let shrub = 0; shrub < 3; shrub++) {
+        const shrubX = x + side * ((shrub - 1) * 1.25);
+        const shrubZ = z + (shrub % 2 ? 1.5 : -1.2);
+        add(sphereGeometry, shrub % 2 ? hedge : leaves, [shrubX, 0.62 + (shrub % 2) * 0.12, shrubZ], [0.95, 0.85, 1.05], `west-egg-understory-${side}-${index}-${shrub}`);
+      }
+    }
+  }
+
+  // Distant Long Island houses glow through the trees on the approach.
   for (const [index, side] of [-1, 1].entries()) {
 
       const x = side * 15;

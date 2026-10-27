@@ -15,12 +15,6 @@ export interface ChapterFlavor {
 
 export type ChapterOutcome = "win" | "lose" | "pending";
 
-/** Mouse-driven steering. Positive steer means game-right. The shell writes
- * the current pointer steer + a constant random wander into this each frame. */
-export interface PointerInput {
-  steer: number;
-}
-
 export interface ChapterDom {
   hud: HTMLElement;
   speedValue: HTMLElement;
@@ -42,7 +36,6 @@ export interface ChapterContext {
   world?: World;
   audio: GameAudio;
   keys: Set<string>;
-  pointer: PointerInput;
   dom: ChapterDom;
   onKey: (handler: (key: string) => void) => () => void;
   say: (text: string, hold?: number, priority?: boolean) => void;

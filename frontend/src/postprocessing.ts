@@ -17,7 +17,7 @@ export function createScenePostProcessing(
   renderer: WebGLRenderer,
   scene: Scene,
   camera: Camera,
-  bloomEnabled: boolean,
+  bloomStrength: number,
 ): ScenePostProcessing {
   const settings = ENGINE_CONFIG.rendering.carGamePostProcessing;
   const composer = new EffectComposer(renderer);
@@ -28,11 +28,11 @@ export function createScenePostProcessing(
   });
   const bloomPass = new UnrealBloomPass(
     new Vector2(window.innerWidth, window.innerHeight),
-    settings.bloomStrength,
+    bloomStrength,
     settings.bloomRadius,
     settings.bloomThreshold,
   );
-  bloomPass.enabled = bloomEnabled;
+  bloomPass.enabled = bloomStrength > 0;
   const outputPass = new OutputPass();
   composer.addPass(renderPass);
   composer.addPass(pixelPass);

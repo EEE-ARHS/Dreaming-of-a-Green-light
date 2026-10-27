@@ -5,7 +5,7 @@ import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import { PhysicsConstraintAxis, PhysicsMotionType as HavokMotionType, PhysicsPrestepType, PhysicsShapeType as HavokShapeType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin";
 import { HavokPlugin } from "@babylonjs/core/Physics/v2/Plugins/havokPlugin";
 import { PhysicsAggregate as HavokAggregate } from "@babylonjs/core/Physics/v2/physicsAggregate";
-import { PhysicsShapeCapsule, PhysicsShapeSphere } from "@babylonjs/core/Physics/v2/physicsShape";
+import { PhysicsShapeCapsule, PhysicsShapeCylinder, PhysicsShapeSphere } from "@babylonjs/core/Physics/v2/physicsShape";
 import { PhysicsBody as HavokBody } from "@babylonjs/core/Physics/v2/physicsBody";
 import { Physics6DoFConstraint as Havok6DoFConstraint } from "@babylonjs/core/Physics/v2/physicsConstraint";
 import { Scene as HavokScene } from "@babylonjs/core/scene";
@@ -13,7 +13,7 @@ import "@babylonjs/core/Physics/joinedPhysicsEngineComponent";
 import "@babylonjs/core/Physics/v2/physicsEngineComponent";
 import { Object3D, Quaternion as ThreeQuaternion, Vector3 } from "three";
 
-export const PhysicsShapeType = { BOX: "box", CAPSULE: "capsule", SPHERE: "sphere" } as const;
+export const PhysicsShapeType = { BOX: "box", CAPSULE: "capsule", CYLINDER: "cylinder", SPHERE: "sphere" } as const;
 export type PhysicsShapeType = (typeof PhysicsShapeType)[keyof typeof PhysicsShapeType];
 export const PhysicsMotionType = { STATIC: "static", ANIMATED: "animated", DYNAMIC: "dynamic" } as const;
 export type PhysicsMotionType = (typeof PhysicsMotionType)[keyof typeof PhysicsMotionType];
@@ -26,6 +26,9 @@ export interface PhysicsMaterialOptions {
   pointA?: Vector3;
   pointB?: Vector3;
   extents?: Vector3;
+  center?: Vector3;
+  filterMembershipMask?: number;
+  filterCollideMask?: number;
 }
 
 export interface PhysicsJointLimits {
@@ -56,6 +59,15 @@ export class PhysicsBody {
     this.havokBody.setLinearVelocity(toHavokVector(velocity));
   }
 
+  setMassProperties(mass: number, inertia: Vector3): void {
+    this.havokBody.setMassProperties({ mass, inertia: toHavokVector(inertia) });
+  }
+
+  getLinearVelocity(): Vector3 {
+    const velocity = this.havokBody.getLinearVelocity();
+    return new Vector3(velocity.x, velocity.y, velocity.z);
+  }
+
   setTransform(position: Vector3, rotation: ThreeQuaternion): void {
     this.node.position.set(position.x, position.y, position.z);
     this.node.rotationQuaternion!.copyFromFloats(rotation.x, rotation.y, rotation.z, rotation.w);
@@ -83,13 +95,18 @@ export class PhysicsAggregate {
       pointA: options.pointA ? toHavokVector(options.pointA) : undefined,
       pointB: options.pointB ? toHavokVector(options.pointB) : undefined,
       extents: extents ? toHavokVector(extents) : undefined,
+      center: options.center ? toHavokVector(options.center) : undefined,
     };
     const havokShape = shape === "capsule"
       ? new PhysicsShapeCapsule(params.pointA ?? new HavokVector3(0, -0.25, 0), params.pointB ?? new HavokVector3(0, 0.25, 0), params.radius ?? 0.1, physics.scene)
-      : shape === "sphere"
-        ? new PhysicsShapeSphere(new HavokVector3(0, 0, 0), params.radius ?? 0.1, physics.scene)
-        : undefined;
+      : shape === "cylinder"
+        ? new PhysicsShapeCylinder(params.pointA ?? new HavokVector3(0, -0.25, 0), params.pointB ?? new HavokVector3(0, 0.25, 0), params.radius ?? 0.1, physics.scene)
+        : shape === "sphere"
+          ? new PhysicsShapeSphere(new HavokVector3(0, 0, 0), params.radius ?? 0.1, physics.scene)
+          : undefined;
     this.aggregate = new HavokAggregate(node, havokShape ?? toHavokShape(shape), params, physics.scene);
+    if (options.filterMembershipMask !== undefined) this.aggregate.shape.filterMembershipMask = options.filterMembershipMask;
+    if (options.filterCollideMask !== undefined) this.aggregate.shape.filterCollideMask = options.filterCollideMask;
     this.body = new PhysicsBody(object, options.mass, node, this.aggregate.body);
     this.body.motionType = options.mass === 0 ? "static" : "dynamic";
     this.body.havokBody.setMotionType(options.mass === 0 ? HavokMotionType.STATIC : HavokMotionType.DYNAMIC);
@@ -112,6 +129,7 @@ export class PhysicsConstraint {
     this.constraint = new Havok6DoFConstraint({
       pivotA: toHavokVector(options.pivotA),
       pivotB: toHavokVector(options.pivotB),
+      collision: false,
       axisA: new HavokVector3(1, 0, 0),
       perpAxisA: new HavokVector3(0, 1, 0),
       axisB: new HavokVector3(1, 0, 0),
@@ -205,6 +223,7 @@ export class HavokPhysics {
 function toHavokShape(shape: PhysicsShapeType): HavokShapeType {
   if (shape === "box") return HavokShapeType.BOX;
   if (shape === "capsule") return HavokShapeType.CAPSULE;
+  if (shape === "cylinder") return HavokShapeType.CYLINDER;
   return HavokShapeType.SPHERE;
 }
 

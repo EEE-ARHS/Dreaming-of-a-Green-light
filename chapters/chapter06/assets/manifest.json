@@ -3,7 +3,7 @@
   "name": "THE VALLEY OF ASHES",
   "blurb": "The road from New York runs black through the Valley. Steer Gatsby's yellow car through the crossing.",
   "command": "KEEP YOUR EYES ON THE ROAD",
-  "how": "W / ↑ accelerate · S / ↓ brake · A steer right · D steer left · ← / → steer · SPACE skid · C camera",
+  "how": "W / ↑ accelerate · S / ↓ brake · A / ← steer left · D / → steer right · SPACE skid",
   "duration": 16,
   "flavor": {
     "win": {

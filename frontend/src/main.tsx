@@ -248,6 +248,17 @@ function App() {
     window.addEventListener("gatsby:return-to-chapter-select", returnToChapterSelect);
     return () => window.removeEventListener("gatsby:return-to-chapter-select", returnToChapterSelect);
   }, [returnToChapterSelect]);
+  useEffect(() => {
+    if (!chapterSelectOpen || selectedChapter) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.repeat || event.key.toLowerCase() !== "x") return;
+      event.preventDefault();
+      setChapterSelectOpen(false);
+      setChapterError("");
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [chapterSelectOpen, selectedChapter]);
 
   const runtimeReady = useCallback(() => {
     setIsLoadingChapter(false);
@@ -356,7 +367,7 @@ function App() {
       <div id="crosshair" aria-hidden="true" />
       <footer>
         <div className="chapter"><span className="chapter-no">CHAPTERS</span><span className="chapter-note">Silver-screen stories · Three.js</span></div>
-        <div className="keys">{selectedChapter === "nicksHouse" ? <><span><b>WASD</b> walk</span><span><b>MOUSE</b> look</span><span><b>E</b> trunk / carry</span><span><b>ESC</b> chapters</span></> : <><span><b>W / ↑</b> throttle</span><span><b>S / ↓</b> brake</span><span><b>A</b> right</span><span><b>D</b> left</span><span><b>SPACE</b> skid</span><span><b>C</b> view</span><span><b>R</b> replay</span><span><b>P</b> colliders</span><span><b>M</b> mute</span><span><b>ESC</b> menu</span></>}</div>
+        <div className="keys">{selectedChapter === "nicksHouse" ? <><span><b>WASD / ↑↓←→</b> walk</span><span><b>I J K L</b> look</span><span><b>E</b> trunk / carry / set down</span><span><b>Hold left mouse</b> drag items / open doors</span><span><b>ESC</b> chapters</span></> : <><span><b>W / ↑</b> throttle</span><span><b>S / ↓</b> brake</span><span><b>A / ←</b> left</span><span><b>D / →</b> right</span><span><b>SPACE</b> skid</span><span><b>R</b> replay</span><span><b>P</b> colliders</span><span><b>M</b> mute</span><span><b>ESC</b> menu</span></>}</div>
       </footer>
     </main>
 
@@ -389,7 +400,7 @@ function App() {
       if (event.key === "ArrowRight") { event.preventDefault(); moveChapter(1); }
       if (event.key === "ArrowUp") { event.preventDefault(); moveChapter(-4); }
       if (event.key === "ArrowDown") { event.preventDefault(); moveChapter(4); }
-      if (event.key === "Escape") setChapterSelectOpen(false);
+      if (event.key === "Escape" || event.key.toLowerCase() === "x") setChapterSelectOpen(false);
       if (event.key === "Enter" && !activeChapter.locked && !isLoadingChapter) chooseChapter(activeChapter.id);
     }}>
       <button type="button" className="chapter-select-close" aria-label="Back to title" onClick={() => setChapterSelectOpen(false)}>×</button>

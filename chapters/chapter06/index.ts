@@ -1,9 +1,10 @@
-import { PhysicsViewer, Vector3 } from "../../frontend/src/three-compat";
+import { AdditiveBlending, BufferGeometry, Float32BufferAttribute, Points, PointsMaterial, Vector3 } from "three";
+import { PhysicsViewer } from "../../frontend/src/three-compat";
 import type { PhysicsBody } from "../../frontend/src/physics";
 import type { ChapterContext, ChapterOutcome } from "../../frontend/src/chapters/types";
 import { toMph } from "../../frontend/src/chapters/types";
 import { showCaption, feedCaptions } from "../../frontend/src/ui";
-import { MYRTLE_Z, FINISH_Z, VIEW_MODES, VIEW_LABELS, BEATS, type RoundPhase, type ViewMode } from "./constants";
+import { MYRTLE_Z, FINISH_Z, BEATS, type RoundPhase } from "./constants";
 import manifest from "./assets/manifest.json";
 
 const randomBetween = (min: number, max: number): number => min + Math.random() * (max - min);
@@ -26,7 +27,7 @@ export class CrashDriveChapter {
   get physicsScale(): number { return this.timeScaleHint; }
   private readonly ctx: ChapterContext;
   private phase: RoundPhase = "driving";
-  private view: ViewMode = "chase";
+
   private won = false;
   private expired = false;
   private shake = 0;
@@ -48,15 +49,20 @@ export class CrashDriveChapter {
   private slipUntil = 0;
   private slipSteer = 0;
   private time = 0;
+  private introElapsed = 0;
   private readonly lookAt = new Vector3(0, 1.1, 8);
   private readonly cameraDesired = new Vector3();
   private readonly targetDesired = new Vector3();
+  private impactParticles: Points | null = null;
+  private impactParticleGeometry: BufferGeometry | null = null;
+  private impactParticleMaterial: PointsMaterial | null = null;
+  private impactParticleVelocities = new Float32Array(0);
+  private impactParticleLife = 0;
   private readonly unsubscribes: (() => void)[] = [];
 
   constructor(ctx: ChapterContext) {
     this.ctx = ctx;
     this.unsubscribes.push(ctx.onKey((key: string) => {
-      if (this.phase === "driving" && key === "c") this.cycleView();
       if (key === "p") this.toggleColliders();
     }));
   }
@@ -64,13 +70,15 @@ export class CrashDriveChapter {
   start(): void {
     const { car, myrtle } = this.requireValley();
     this.time = 0;
+    this.introElapsed = 0;
+    this.disposeImpactParticles();
     car.reset(); myrtle.reset(); this.phase = "driving"; this.won = false; this.expired = false;
     this.timeScaleHint = 1; this.shake = 0; this.captionQueue.length = 0; this.captionTimer = 0;
     this.impactElapsed = 0; this.impactMph = 0; this.crossingStarted = false; this.waveAnnounced = false;
     this.hit = false; this.missed = false; this.aftermath = false; this.distortion = 0; this.distortionTarget = 0; this.distortionEnvelope = 0;
     this.nextDistortionAt = randomBetween(1.8, 4.5); this.nextSlipAt = randomBetween(2.5, 5.5); this.slipUntil = 0; this.slipSteer = 0;
     for (const beat of BEATS) beat.done = false;
-    this.view = "chase"; this.ctx.dom.flash.classList.remove("fire");
+    this.ctx.dom.flash.classList.remove("fire");
     this.ctx.dom.hud.classList.add("live"); this.ctx.dom.letterbox.classList.add("on");
     this.snapCamera(); this.say("The engine catches. The ash lifts off the road.", 2.6);
   }
@@ -78,6 +86,7 @@ export class CrashDriveChapter {
   dispose(): void {
     for (const off of this.unsubscribes) off(); this.unsubscribes.length = 0;
     this.viewer?.dispose(); this.viewer = null;
+    this.disposeImpactParticles();
   }
 
   outcome(): ChapterOutcome {
@@ -131,7 +140,6 @@ export class CrashDriveChapter {
     feedCaptions(dt, state);
     this.captionTimer = state.captionTimer;
   }
-  private cycleView(): void { this.view = VIEW_MODES[(VIEW_MODES.indexOf(this.view) + 1) % VIEW_MODES.length]; this.say(VIEW_LABELS[this.view], 1.1, true); this.snapCamera(); }
   private toggleColliders(): void {
     const { scene, myrtle } = this.requireValley();
     if (this.viewer) { this.viewer.dispose(); this.viewer = null; this.say("COLLIDERS OFF", 1.2); return; }
@@ -143,29 +151,54 @@ export class CrashDriveChapter {
   }
   private snapCamera(): void { this.placeCamera(0, true); }
   private placeCamera(dt: number, snap = false): void {
-    const { camera, car, myrtle } = { ...this.ctx, ...this.requireValley() }, fwd = car.forward;
-    const right = new Vector3(Math.cos(car.yaw), 0, -Math.sin(car.yaw)), carPos = car.root.position;
-    const speedRatio = Math.min(1, Math.abs(car.speed) / 31); let rate = 6;
+    const { camera, car, myrtle } = { ...this.ctx, ...this.requireValley() };
+    const fwd = car.forward;
+    const carPos = car.root.position;
+    const speedRatio = Math.min(1, Math.abs(car.speed) / 31);
+    let rate = 6.5;
+
     if (this.aftermath) {
-      const center = myrtle.getCenter(); this.cameraDesired.copy(center).add(new Vector3(4.6, 1.9, -4.2));
-      this.targetDesired.copy(center).add(new Vector3(0, 0.15, 0)); camera.fov = 46; rate = 3.4;
-    } else if (this.view === "cockpit") {
-      this.cameraDesired.copy(carPos).addScaledVector(right, -0.34).add(new Vector3(0, 0.86, 0)).addScaledVector(fwd, -0.12);
-      this.targetDesired.copy(this.cameraDesired).addScaledVector(fwd, 30).add(new Vector3(0, -0.5, 0)); camera.fov = 56 + speedRatio * 4; rate = 26;
-    } else if (this.view === "crane") {
-      this.cameraDesired.copy(carPos).addScaledVector(fwd, -17).addScaledVector(right, 7.5).add(new Vector3(0, 10.5, 0));
-      this.targetDesired.copy(carPos).addScaledVector(fwd, 9).add(new Vector3(0, 0.8, 0)); camera.fov = 44; rate = 3.2;
+      const center = myrtle.getCenter();
+      this.cameraDesired.copy(center).add(new Vector3(4.6, 1.9, -4.2));
+      this.targetDesired.copy(center).add(new Vector3(0, 0.15, 0));
+      camera.fov = 46;
+      rate = 3.4;
     } else {
-      this.cameraDesired.copy(carPos).addScaledVector(fwd, -7.4 - speedRatio * 1.2).add(new Vector3(0, 2.9, 0));
-      this.targetDesired.copy(carPos).addScaledVector(fwd, 10).add(new Vector3(0, 1.05, 0)); camera.fov = 52 + speedRatio * 6; rate = 6.5;
+      const chasePosition = carPos.clone().addScaledVector(fwd, -7.4 - speedRatio * 1.2).add(new Vector3(0, 2.9, 0));
+      const chaseTarget = carPos.clone().addScaledVector(fwd, 10).add(new Vector3(0, 1.05, 0));
+      if (this.introElapsed < 2.4) {
+        const myrtleCenter = myrtle.getCenter();
+        const introPosition = myrtleCenter.clone().add(new Vector3(4.6, 2.8, -6.5));
+        const introTarget = myrtleCenter.clone().add(new Vector3(0, 0.7, 0));
+        const progress = Math.max(0, Math.min(1, this.introElapsed / 2.4));
+        const eased = progress * progress * (3 - 2 * progress);
+        this.cameraDesired.copy(introPosition).lerp(chasePosition, eased);
+        this.targetDesired.copy(introTarget).lerp(chaseTarget, eased);
+        camera.fov = 48 + (52 + speedRatio * 6 - 48) * eased;
+        rate = eased < 0.92 ? 3.4 : 6.5;
+      } else {
+        this.cameraDesired.copy(chasePosition);
+        this.targetDesired.copy(chaseTarget);
+        camera.fov = 52 + speedRatio * 6;
+      }
     }
-    if (this.distortion > 0.01) { rate *= Math.max(0.45, 1 - 0.5 * this.distortion); camera.fov += this.distortion * (19.5 + 5.7 * Math.sin(this.time * 2.4 + this.distortionEnvelope)); }
+
+    if (!this.aftermath && this.distortion > 0.01) {
+      rate *= Math.max(0.45, 1 - 0.5 * this.distortion);
+      camera.fov += this.distortion * (19.5 + 5.7 * Math.sin(this.time * 2.4 + this.distortionEnvelope));
+    }
     const blend = snap ? 1 : 1 - Math.exp(-rate * dt);
-    camera.position.lerp(this.cameraDesired, blend); this.lookAt.lerp(this.targetDesired, snap ? 1 : 1 - Math.exp(-(rate + 3) * dt));
-    const amount = this.shake * (this.view === "cockpit" ? 0.16 : 0.28);
+    camera.position.lerp(this.cameraDesired, blend);
+    this.lookAt.lerp(this.targetDesired, snap ? 1 : 1 - Math.exp(-(rate + 3) * dt));
+    if (this.aftermath && myrtle.mode === "ragdoll") {
+      this.lookAt.copy(this.targetDesired);
+      this.cameraDesired.copy(this.targetDesired).add(new Vector3(4.6, 1.9, -4.2));
+      camera.position.lerp(this.cameraDesired, 1 - Math.exp(-dt * 3.4));
+    }
+    const amount = this.shake * 0.28;
     if (amount > 0.001) camera.position.add(new Vector3((Math.random() - 0.5) * amount, (Math.random() - 0.5) * amount, (Math.random() - 0.5) * amount));
     camera.lookAt(this.lookAt);
-    if (this.distortion > 0.01) camera.rotation.z += Math.sin(this.time * 3.1) * 0.14 * this.distortion + Math.sin(this.time * 7.7) * 0.035 * this.distortion;
+    if (!this.aftermath && this.distortion > 0.01) camera.rotation.z += Math.sin(this.time * 3.1) * 0.14 * this.distortion + Math.sin(this.time * 7.7) * 0.035 * this.distortion;
   }
   private checkStory(): void {
     const { car, myrtle } = this.requireValley();
@@ -183,6 +216,7 @@ export class CrashDriveChapter {
     const { car, myrtle, audio } = this.requireValley();
     this.hit = true; this.aftermath = true; this.phase = "impact"; this.impactElapsed = 0;
     this.impactMph = Math.round(toMph(car.speed)); this.timeScaleHint = 0.34; this.won = true;
+    this.spawnImpactParticles(myrtle.getCenter());
     myrtle.activate(car.forward.multiplyScalar(Math.max(5, Math.abs(car.speed)))); car.crashed = true;
     audio.impact(); this.ctx.dom.flash.classList.add("fire");
     window.setTimeout(() => this.ctx.dom.flash.classList.remove("fire"), 120);
@@ -200,13 +234,11 @@ export class CrashDriveChapter {
   }
   update(dt: number): void {
     const { car, myrtle, world, audio } = this.requireValley();
-    const { pointer, keys } = this.ctx;
+    const { keys } = this.ctx;
     this.time += dt;
+    this.introElapsed += dt;
     const scaled = dt * this.timeScaleHint, controlEnabled = this.phase === "driving";
-    const keyboardSteer = (keys.has("arrowright") || keys.has("a") ? 1 : 0) - (keys.has("arrowleft") || keys.has("d") ? 1 : 0);
-    const steer = keys.has("a") || keys.has("d") || keys.has("arrowleft") || keys.has("arrowright")
-      ? keyboardSteer
-      : pointer.steer;
+    const steer = Number(keys.has("arrowright")) - Number(keys.has("arrowleft")) + Number(keys.has("a")) - Number(keys.has("d"));
     const throttle = Number(keys.has("w") || keys.has("arrowup"));
     const brake = Number(keys.has("s") || keys.has("arrowdown"));
     const input = { throttle, brake, steer, handbrake: keys.has(" ") };
@@ -237,6 +269,7 @@ export class CrashDriveChapter {
     this.distortion += (this.distortionTarget - this.distortion) * Math.min(1, scaled * randomBetween(1.6, 3.4));
     if (this.phase === "impact") {
       this.impactElapsed += scaled;
+      this.updateImpactParticles(dt);
       if (this.impactElapsed > 0.45) this.timeScaleHint += (1 - this.timeScaleHint) * Math.min(1, scaled * 0.85);
       this.shake *= Math.max(0, 1 - scaled * 2.2);
       if (this.impactElapsed > 3.1) this.phase = "complete";
@@ -246,6 +279,52 @@ export class CrashDriveChapter {
       this.say("Myrtle made it across. The yellow car missed its chance.", 3.4, true);
     }
     this.feedCaptions(scaled); this.updateHud(); this.placeCamera(scaled); audio.setEngine(car.speed, input.throttle, car.crashed);
+  }
+  private spawnImpactParticles(center: Vector3): void {
+    this.disposeImpactParticles();
+    const count = 72;
+    const positions = new Float32Array(count * 3);
+    this.impactParticleVelocities = new Float32Array(count * 3);
+    for (let index = 0; index < count; index++) {
+      const offset = index * 3;
+      positions[offset] = center.x; positions[offset + 1] = center.y; positions[offset + 2] = center.z;
+      const angle = Math.random() * Math.PI * 2;
+      const speed = randomBetween(1.8, 5.4);
+      this.impactParticleVelocities[offset] = Math.cos(angle) * speed;
+      this.impactParticleVelocities[offset + 1] = randomBetween(1.2, 5.8);
+      this.impactParticleVelocities[offset + 2] = Math.sin(angle) * speed;
+    }
+    this.impactParticleGeometry = new BufferGeometry();
+    this.impactParticleGeometry.setAttribute("position", new Float32BufferAttribute(positions, 3));
+    this.impactParticleMaterial = new PointsMaterial({ color: "#fff6df", size: 0.19, transparent: true, opacity: 1, blending: AdditiveBlending, depthWrite: false, sizeAttenuation: true });
+    this.impactParticles = new Points(this.impactParticleGeometry, this.impactParticleMaterial);
+    this.impactParticles.name = "myrtleImpactParticles";
+    this.impactParticles.renderOrder = 3;
+    this.impactParticles.frustumCulled = false;
+    this.ctx.scene.add(this.impactParticles);
+    this.impactParticleLife = 1.35;
+  }
+  private updateImpactParticles(dt: number): void {
+    if (!this.impactParticles || !this.impactParticleGeometry || !this.impactParticleMaterial) return;
+    this.impactParticleLife = Math.max(0, this.impactParticleLife - dt);
+    const positions = this.impactParticleGeometry.getAttribute("position") as Float32BufferAttribute;
+    for (let index = 0; index < positions.count; index++) {
+      const offset = index * 3;
+      positions.array[offset] += this.impactParticleVelocities[offset] * dt;
+      positions.array[offset + 1] += this.impactParticleVelocities[offset + 1] * dt;
+      positions.array[offset + 2] += this.impactParticleVelocities[offset + 2] * dt;
+      this.impactParticleVelocities[offset + 1] -= 5.8 * dt;
+    }
+    positions.needsUpdate = true;
+    this.impactParticleMaterial.opacity = Math.min(1, this.impactParticleLife / 0.45);
+    if (this.impactParticleLife === 0) this.disposeImpactParticles();
+  }
+  private disposeImpactParticles(): void {
+    this.impactParticles?.removeFromParent();
+    this.impactParticleGeometry?.dispose();
+    this.impactParticleMaterial?.dispose();
+    this.impactParticles = null; this.impactParticleGeometry = null; this.impactParticleMaterial = null;
+    this.impactParticleVelocities = new Float32Array(0); this.impactParticleLife = 0;
   }
   private updateHud(): void {
     const { car } = this.requireValley();

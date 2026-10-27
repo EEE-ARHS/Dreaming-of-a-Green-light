@@ -1,4 +1,4 @@
-import { Mesh, MeshStandardMaterial, Quaternion, Scene, Vector3 } from "three";
+import { BackSide, Mesh, MeshBasicMaterial, MeshStandardMaterial, Quaternion, Scene, Vector3 } from "three";
 import { HavokPhysics, PhysicsAggregate, PhysicsConstraint, PhysicsMotionType, PhysicsShapeType, type PhysicsMaterialOptions } from "./physics";
 import {
   Y_AXIS, X_AXIS,
@@ -12,6 +12,7 @@ type Part = {
   mesh: Mesh;
   aggregate: PhysicsAggregate;
   body: PhysicsAggregate["body"];
+  outline: Mesh;
   restPos: Vector3;
   restRot: Quaternion;
 };
@@ -28,7 +29,13 @@ export class Myrtle {
   private readonly materials: Record<PartMaterial, MeshStandardMaterial>;
   constructor(private readonly scene: Scene, private readonly physics: HavokPhysics) {
     const make = (name: string, hex: string, metalness = 0.06, emissive = "#000000") => new MeshStandardMaterial({ name, color: hex, metalness, roughness: 0.62, emissive });
-    this.materials = { dress: make("myrtleDress", "#6a2531", 0.12, "#150609"), skin: make("myrtleSkin", "#b98d70", 0.08, "#1a100b"), hair: make("myrtleHair", "#17131a", 0.2, "#050407"), shoe: make("myrtleShoe", "#141114", 0.3, "#030303"), pearl: make("myrtlePearl", "#d9d3c2", 0.6, "#2a2820") };
+    this.materials = {
+      dress: new MeshStandardMaterial({ name: "myrtleDress", color: "#ff8992", emissive: "#ff435e", emissiveIntensity: 1.25, roughness: 0.38, metalness: 0.02 }),
+      skin: new MeshStandardMaterial({ name: "myrtleSkin", color: "#ffd0aa", emissive: "#b56b3c", emissiveIntensity: 0.65, roughness: 0.54 }),
+      hair: make("myrtleHair", "#483540", 0.06, "#22121a"),
+      shoe: make("myrtleShoe", "#34282a", 0.12, "#100a0b"),
+      pearl: new MeshStandardMaterial({ name: "myrtlePearl", color: "#ffffff", emissive: "#ffe4a6", emissiveIntensity: 1.35, roughness: 0.28, metalness: 0.08 }),
+    };
     for (const def of PART_DEFS) { const part = this.createPart(def); this.parts.push(part); this.partMap.set(def.name, part); }
     for (const def of JOINT_DEFS) this.createJoint(def);
     this.pose(0);
@@ -51,9 +58,16 @@ export class Myrtle {
       options.radius = radius;
     }
     const partMesh = createMyrtlePartMesh(def, this.materials);
+    const outline = new Mesh(partMesh.geometry, new MeshBasicMaterial({ color: "#ffffff", side: BackSide }));
+    outline.name = `myrtleOutline:${def.name}`;
+    outline.scale.setScalar(1.09);
+    outline.renderOrder = 2;
+    outline.castShadow = false;
+    outline.receiveShadow = false;
+    partMesh.add(outline);
     this.scene.add(partMesh);
     const aggregate = new PhysicsAggregate(partMesh, shape, options, this.physics);
-    return { def, mesh: partMesh, aggregate, body: aggregate.body, restPos: new Vector3(...def.pos), restRot: new Quaternion() };
+    return { def, mesh: partMesh, aggregate, body: aggregate.body, outline, restPos: new Vector3(...def.pos), restRot: new Quaternion() };
   }
   private createJoint(def: JointDef): void {
     const parent = this.partMap.get(def.parent), child = this.partMap.get(def.child);

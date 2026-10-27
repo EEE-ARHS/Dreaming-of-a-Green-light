@@ -16,6 +16,8 @@ import {
   type BelongingSpec, BELONGINGS
 } from "./constants";
 
+const WORLD_COLLISION_MASK = 1;
+const PLAYER_COLLISION_MASK = 2;
 const ARRIVAL_START_Z = -72;
 const ARRIVAL_PARK_Z = -8.25;
 const ARRIVAL_SPEED = 8.4;
@@ -59,9 +61,18 @@ export class NicksHouseChapter {
   private readonly lookAt = new THREE.Vector3();
   private readonly cameraDesired = new THREE.Vector3();
   private readonly targetDesired = new THREE.Vector3();
+  private readonly raycaster = new THREE.Raycaster();
+  private readonly mouseNdc = new THREE.Vector2();
+  private readonly mouseGrabTarget = new THREE.Vector3();
+  private readonly grabVelocity = new THREE.Vector3();
+  private lastMouseX = 0;
+  private lastMouseY = 0;
+  private grabbedCrate: Crate | null = null;
+  private grabbedDoor: THREE.Group | null = null;
+  private pointerHeld = false;
+  private grabDistance = 2;
   private yaw = 0;
   private pitch = 0;
-  private pointerLocked = false;
   private playerSpeed = 0;
   private trunkOpen = false;
   private player: PlayerController | null = null;
@@ -75,7 +86,6 @@ export class NicksHouseChapter {
   private arrivalElapsed = 0;
   private showedValleyBeat = false;
   private showedEggBeat = false;
-  private readonly dragTarget = new THREE.Vector3();
   private readonly trunkPosition = new THREE.Vector3();
   private readonly trunkHinge = new THREE.Group();
   private tailgate: THREE.Group | null = null;
@@ -88,6 +98,7 @@ export class NicksHouseChapter {
   private readonly savedCameraPosition = new THREE.Vector3();
   private readonly savedCameraQuaternion = new THREE.Quaternion();
   private savedFov = 50;
+  private savedFog: THREE.Scene["fog"] = null;
   private counter: HTMLElement | null = null;
 
   constructor(ctx: ChapterContext, modelAssetSource: ModelAssetSource = GLTF_MODEL_ASSET_SOURCE) {
@@ -101,6 +112,8 @@ export class NicksHouseChapter {
     this.savedCameraPosition.copy(camera.position);
     this.savedCameraQuaternion.copy(camera.quaternion);
     this.savedFov = camera.fov;
+    this.savedFog = this.ctx.scene.fog;
+    this.ctx.scene.fog = new THREE.Fog("#17120e", 3.5, 16);
     this.won = false;
     this.expired = false;
     this.dragged = null;
@@ -108,7 +121,7 @@ export class NicksHouseChapter {
     this.physicsAggregates = [];
     this.modelLoadToken = { cancelled: false };
     this.storyIndex = 0;
-    this.yaw = Math.PI;
+    this.yaw = 0;
     this.pitch = 0;
 
     const room = this.buildRoom();
@@ -118,16 +131,18 @@ export class NicksHouseChapter {
     this.trunkOpen = false;
     this.playerSpeed = 0;
     this.player = new PlayerController(this.ctx.scene, this.requirePhysics());
+    this.player.setAvatarVisible(true);
     this.buildExterior();
     this.buildCarAndBelongings();
+    this.player.setCutscenePosition(new THREE.Vector3(-0.34, 0.06, ARRIVAL_START_Z - 0.55), Math.PI);
     this.syncMeshes();
 
     this.arrivalPhase = "driving";
     this.arrivalElapsed = 0;
     this.showedValleyBeat = false;
     this.showedEggBeat = false;
-    camera.position.set(9, 3.8, ARRIVAL_START_Z - 8);
-    camera.lookAt(0, 1.1, ARRIVAL_START_Z + 1.5);
+    camera.position.set(7.5, 2.8, ARRIVAL_START_Z - 7.5);
+    camera.lookAt(0, 1.15, ARRIVAL_START_Z + 1.8);
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.fov = 54;
     camera.updateProjectionMatrix();
@@ -137,11 +152,13 @@ export class NicksHouseChapter {
     this.updateCounter();
 
     const canvas = this.ctx.engine.domElement;
-    canvas.addEventListener("pointerdown", this.onCanvasPointerDown);
-    window.addEventListener("mousemove", this.onMouseLook);
     window.addEventListener("keydown", this.onKeyDown);
-    document.addEventListener("pointerlockchange", this.onPointerLockChange);
     window.addEventListener("blur", this.onWindowBlur);
+    canvas.addEventListener("mousedown", this.onMouseDown);
+    window.addEventListener("mouseup", this.onMouseUp);
+    window.addEventListener("mousemove", this.onMouseMove);
+    document.addEventListener("pointerlockchange", this.onPointerLockChange);
+    canvas.addEventListener("contextmenu", this.onContextMenu);
     canvas.style.cursor = "default";
 
     dom.hud.classList.add("live");
@@ -151,13 +168,11 @@ export class NicksHouseChapter {
   update(dt: number): void {
     if (!this.room) return;
     if (this.arrivalPhase !== "done") {
-      this.player?.update(dt, 0);
+      this.player?.updatePresentation();
       this.updateArrivalCutscene(dt);
       return;
     }
-    if (!this.pointerLocked && this.ctx.engine.domElement.style.cursor === "none") {
-      this.ctx.engine.domElement.style.cursor = "default";
-    }
+    this.updateLook(dt);
     this.updateWalk(dt);
     this.player?.update(dt, this.playerSpeed);
     this.updateTrunk(dt);
@@ -202,21 +217,24 @@ export class NicksHouseChapter {
   dispose(): void {
     this.modelLoadToken.cancelled = true;
     this.arrivalPhase = "done";
-    const canvas = this.ctx.engine.domElement;
-    canvas.removeEventListener("pointerdown", this.onCanvasPointerDown);
-    window.removeEventListener("mousemove", this.onMouseLook);
     window.removeEventListener("keydown", this.onKeyDown);
-    document.removeEventListener("pointerlockchange", this.onPointerLockChange);
     window.removeEventListener("blur", this.onWindowBlur);
+    const canvas = this.ctx.engine.domElement;
+    canvas.removeEventListener("mousedown", this.onMouseDown);
+    window.removeEventListener("mouseup", this.onMouseUp);
+    window.removeEventListener("mousemove", this.onMouseMove);
+    document.removeEventListener("pointerlockchange", this.onPointerLockChange);
+    canvas.removeEventListener("contextmenu", this.onContextMenu);
     if (document.pointerLockElement === canvas) document.exitPointerLock();
-    canvas.style.cursor = "default";
-    if (this.dragged) this.dragged.body.setMotionType(PhysicsMotionType.DYNAMIC);
+    this.releaseMouseGrab();
     this.dragged = null;
     this.player?.setCarrying(false);
     this.player?.dispose();
     this.player = null;
     this.trunkOpen = false;
     this.tailgate = null;
+    canvas.style.cursor = "default";
+    document.getElementById("crosshair")?.classList.remove("is-grabbing", "is-interactive");
     this.trunkHinge.clear();
     for (const aggregate of this.physicsAggregates) aggregate.dispose();
     this.physicsAggregates = [];
@@ -240,6 +258,7 @@ export class NicksHouseChapter {
     camera.quaternion.copy(this.savedCameraQuaternion);
     camera.fov = this.savedFov;
     camera.updateProjectionMatrix();
+    this.ctx.scene.fog = this.savedFog;
     dom.letterbox.classList.remove("on");
     dom.hud.classList.remove("live");
 
@@ -266,68 +285,229 @@ export class NicksHouseChapter {
     this.ctx.camera.rotation.set(this.pitch, this.yaw, 0);
   }
 
-  private updatePlayerCamera(dt: number): void {
+  private updatePlayerCamera(_dt: number): void {
     const player = this.player;
     if (!player) return;
     const camera = this.ctx.camera;
-    const behind = 3.4;
-    const cameraHeight = THREE.MathUtils.clamp(1.72 + this.pitch * 1.2, 0.62, 3.05);
-    this.cameraDesired.set(
-      player.position.x + Math.sin(this.yaw) * behind,
-      cameraHeight,
-      player.position.z + Math.cos(this.yaw) * behind,
-    );
+    camera.position.set(player.position.x, 1.62, player.position.z);
+    this.updateCamera();
     this.moveForward.set(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
-    this.playerFocus.copy(player.position).addScaledVector(this.moveForward, -0.9);
-    this.targetDesired.set(
-      player.position.x - Math.sin(this.yaw) * 0.55,
-      1.18 + THREE.MathUtils.clamp(this.pitch * 0.8, -0.7, 0.7),
-      player.position.z - Math.cos(this.yaw) * 0.55,
-    );
-    const blend = 1 - Math.exp(-8 * Math.max(0, dt));
-    camera.position.lerp(this.cameraDesired, blend);
-    this.lookAt.lerp(this.targetDesired, blend);
-    camera.lookAt(this.lookAt);
+    this.playerFocus.copy(player.position).addScaledVector(this.moveForward, 0.9);
+    this.updateMouseNdc();
+    this.updateCrosshairTarget();
+    if (this.pointerHeld) this.updatePointerGrab();
   }
-
-  private readonly onCanvasPointerDown = (): void => {
-    if (this.pointerLocked || this.arrivalPhase !== "done") return;
-    void this.ctx.engine.domElement.requestPointerLock().catch(() => {
-      this.pointerLocked = true;
-      this.ctx.engine.domElement.style.cursor = "default";
-      this.ctx.say("WASD to walk · move the mouse to look · E opens the trunk and carries belongings.", 3.2, true);
-    });
-  };
-
-  private readonly onPointerLockChange = (): void => {
-    this.pointerLocked = document.pointerLockElement === this.ctx.engine.domElement;
-    this.ctx.engine.domElement.style.cursor = this.pointerLocked ? "none" : "default";
-    if (this.pointerLocked) this.ctx.say("WASD to walk · mouse to look · E opens the trunk and carries belongings.", 3.2, true);
-  };
 
   private readonly onWindowBlur = (): void => {
     this.walkDirection.set(0, 0, 0);
     this.playerSpeed = 0;
     this.ctx.keys.clear();
+    this.pointerHeld = false;
+    this.releaseMouseGrab();
+  };
+
+  private readonly onPointerLockChange = (): void => {
+    if (document.pointerLockElement !== this.ctx.engine.domElement && !this.pointerHeld) return;
+    this.lastMouseX = window.innerWidth / 2;
+    this.lastMouseY = window.innerHeight / 2;
+    if (this.grabbedDoor) {
+      this.grabbedDoor.userData.dragStartX = this.lastMouseX;
+      this.grabbedDoor.userData.dragStartY = this.lastMouseY;
+    }
+  };
+
+  private readonly onMouseDown = (event: MouseEvent): void => {
+    if (this.arrivalPhase !== "done") return;
+    if (event.button === 0) {
+      this.pointerHeld = true;
+      this.lastMouseX = event.clientX;
+      this.lastMouseY = event.clientY;
+      void this.ctx.engine.domElement.requestPointerLock?.();
+      this.updateMouseNdc();
+      this.updateCrosshairTarget();
+      this.beginPointerGrab();
+    } else if (event.button === 2 && document.pointerLockElement === this.ctx.engine.domElement) {
+      document.exitPointerLock();
+    }
+  };
+
+  private readonly onMouseUp = (event: MouseEvent): void => {
+    if (event.button !== 0) return;
+    this.pointerHeld = false;
+    this.releaseMouseGrab();
+  };
+
+  private readonly onMouseMove = (event: MouseEvent): void => {
+    if (document.pointerLockElement === this.ctx.engine.domElement && this.arrivalPhase === "done") {
+      this.lastMouseX += event.movementX;
+      this.lastMouseY += event.movementY;
+      this.yaw -= event.movementX * 0.0022;
+      this.pitch = THREE.MathUtils.clamp(this.pitch - event.movementY * 0.0018, -0.95, 0.9);
+      this.updatePlayerCamera(0);
+      return;
+    }
+    this.lastMouseX = event.clientX;
+    this.lastMouseY = event.clientY;
+  };
+
+  private readonly onContextMenu = (event: MouseEvent): void => event.preventDefault();
+
+  private updateMouseNdc(): void {
+    this.mouseNdc.set(0, 0);
+  }
+
+  private interactionHit(): THREE.Intersection | undefined {
+    this.raycaster.setFromCamera(this.mouseNdc, this.ctx.camera);
+    const targets: THREE.Object3D[] = [];
+    for (const crate of this.crates) {
+      if (!crate.delivered) targets.push(crate.mesh);
+    }
+    if (this.tailgate) targets.push(this.tailgate);
+    if (this.carRoot) targets.push(...this.carRoot.children.filter((child) => child.name.startsWith("nick-car-openable-door-")));
+    return this.raycaster.intersectObjects(targets, true)[0];
+  }
+
+  private crateNearCrosshair(): { crate: Crate; distance: number; point: THREE.Vector3 } | undefined {
+    this.raycaster.setFromCamera(this.mouseNdc, this.ctx.camera);
+    let nearest: { crate: Crate; distance: number; point: THREE.Vector3; offset: number } | undefined;
+    for (const crate of this.crates) {
+      if (crate.delivered) continue;
+      const toCenter = crate.proxy.position.clone().sub(this.raycaster.ray.origin);
+      const distance = toCenter.dot(this.raycaster.ray.direction);
+      if (distance < 0 || distance > 5) continue;
+      const point = this.raycaster.ray.at(distance, new THREE.Vector3());
+      const offset = point.distanceTo(crate.proxy.position);
+      const forgivingRadius = Math.max(0.8, crate.size * 1.2);
+      if (offset > forgivingRadius || (nearest && offset >= nearest.offset)) continue;
+      nearest = { crate, distance, point, offset };
+    }
+    return nearest;
+  }
+
+  private updateCrosshairTarget(): void {
+    const crosshair = document.getElementById("crosshair");
+    if (!crosshair) return;
+    const hit = this.interactionHit();
+    const target = hit?.object;
+    const door = target ? this.findCarDoor(target) : null;
+    const tailgate = target ? this.findTailgate(target) : null;
+    const exactCrate = target ? this.crates.find((item) => !item.delivered && item.mesh.getObjectById(target.id)) : undefined;
+    const crate = exactCrate ?? this.crateNearCrosshair()?.crate;
+    const crateInRange = Boolean(crate && (exactCrate ? hit!.distance <= 5 : crate.proxy.position.distanceTo(this.ctx.camera.position) <= 5));
+    crosshair.classList.toggle("is-interactive", Boolean(crateInRange || (hit && hit.distance <= 5 && (door || tailgate))));
+  }
+
+  private beginPointerGrab(): void {
+    if (this.grabbedCrate || this.grabbedDoor) return;
+    const hit = this.interactionHit();
+    if (hit && hit.distance <= 5) {
+      const door = this.findCarDoor(hit.object);
+      if (door) {
+        this.grabbedDoor = door;
+        door.userData.dragStartX = this.lastMouseX;
+        door.userData.dragInitialRotation = door.rotation.y;
+        document.getElementById("crosshair")?.classList.add("is-grabbing");
+        return;
+      }
+      const tailgate = this.findTailgate(hit.object);
+      if (tailgate) {
+        this.grabbedDoor = tailgate;
+        tailgate.userData.dragStartY = this.lastMouseY;
+        tailgate.userData.dragInitialRotation = tailgate.rotation.x;
+        document.getElementById("crosshair")?.classList.add("is-grabbing");
+        return;
+      }
+    }
+
+    const exactCrate = hit && hit.distance <= 5
+      ? this.crates.find((item) => !item.delivered && item.mesh.getObjectById(hit.object.id))
+      : undefined;
+    const forgivingHit = exactCrate ? undefined : this.crateNearCrosshair();
+    const crate = exactCrate ?? forgivingHit?.crate;
+    const grabDistance = exactCrate ? hit!.distance : forgivingHit?.distance ?? 0;
+    const grabPoint = exactCrate ? hit!.point : forgivingHit?.point;
+    if (!crate || grabDistance > 5 || (this.dragged && this.dragged !== crate)) return;
+    this.grabbedCrate = crate;
+    this.dragged = crate;
+    this.grabDistance = THREE.MathUtils.clamp(grabDistance, 0.7, 3.4);
+    crate.body.setMotionType(PhysicsMotionType.DYNAMIC);
+    crate.body.setLinearVelocity(new THREE.Vector3());
+    crate.body.setAngularVelocity(new THREE.Vector3());
+    this.player?.setCarrying(true, grabPoint ?? crate.proxy.position);
+    document.getElementById("crosshair")?.classList.add("is-grabbing");
+  }
+
+  private updatePointerGrab(): void {
+    if (this.grabbedDoor) {
+      if (this.grabbedDoor.name.startsWith("nick-car-openable-door-")) {
+        const side = this.grabbedDoor.name.endsWith("left") ? -1 : 1;
+        const delta = (this.lastMouseX - Number(this.grabbedDoor.userData.dragStartX)) * 0.003;
+        this.grabbedDoor.rotation.y = THREE.MathUtils.clamp(Number(this.grabbedDoor.userData.dragInitialRotation) + delta * side, 0, 1.15);
+      } else if (this.grabbedDoor === this.tailgate) {
+        const delta = (this.lastMouseY - Number(this.grabbedDoor.userData.dragStartY)) * 0.004;
+        this.grabbedDoor.rotation.x = THREE.MathUtils.clamp(Number(this.grabbedDoor.userData.dragInitialRotation) - delta, -Math.PI / 2, 0);
+        this.trunkOpen = this.grabbedDoor.rotation.x < -0.2;
+        this.updateCounter();
+      }
+      return;
+    }
+    if (!this.grabbedCrate) return;
+    this.updateHeldObject();
+  }
+
+  private findCarDoor(object: THREE.Object3D): THREE.Group | null {
+    let node: THREE.Object3D | null = object;
+    while (node && !node.name.startsWith("nick-car-openable-door-")) node = node.parent;
+    return node instanceof THREE.Group ? node : null;
+  }
+
+  private findTailgate(object: THREE.Object3D): THREE.Group | null {
+    let node: THREE.Object3D | null = object;
+    while (node && node !== this.tailgate) node = node.parent;
+    return node === this.tailgate ? this.tailgate : null;
+  }
+
+  private releaseMouseGrab(): void {
+    if (this.grabbedCrate) {
+      const crate = this.grabbedCrate;
+      this.updateHeldObject();
+      crate.body.setMotionType(PhysicsMotionType.DYNAMIC);
+      crate.body.setLinearVelocity(this.grabVelocity.clone().addScaledVector(this.walkDirection, 0.45));
+      crate.body.setAngularVelocity(new THREE.Vector3());
+      if (this.dragged === crate) this.dragged = null;
+      this.player?.setCarrying(false);
+      this.ctx.say(`${crate.label} released. Carry it to the house.`, 2, true);
+    }
+    this.grabbedCrate = null;
+    this.grabbedDoor = null;
+    this.grabVelocity.set(0, 0, 0);
+    document.getElementById("crosshair")?.classList.remove("is-grabbing");
   };
 
   private readonly onKeyDown = (event: KeyboardEvent): void => {
     const key = event.key.toLowerCase();
-    if (["w", "a", "s", "d", "e", "arrowup", "arrowdown", "arrowleft", "arrowright", " "].includes(key)) event.preventDefault();
+    if (["w", "a", "s", "d", "e", "i", "j", "k", "l", "arrowup", "arrowdown", "arrowleft", "arrowright", " "].includes(key)) event.preventDefault();
     if (event.repeat || this.arrivalPhase !== "done") return;
     if (key === "e") this.interactWithTrunkOrBelonging();
   };
+
+  private updateLook(dt: number): void {
+    const { keys } = this.ctx;
+    const lookSpeed = 1.8 * dt;
+    this.yaw += (Number(keys.has("l")) - Number(keys.has("j"))) * lookSpeed;
+    this.pitch = THREE.MathUtils.clamp(
+      this.pitch + (Number(keys.has("i")) - Number(keys.has("k"))) * lookSpeed,
+      -0.95,
+      0.9,
+    );
+  }
 
   private updateWalk(dt: number): void {
     const player = this.player;
     if (!player) return;
     const { keys } = this.ctx;
-    const forwardInput = this.pointerLocked
-      ? Number(keys.has("w") || keys.has("arrowup")) - Number(keys.has("s") || keys.has("arrowdown"))
-      : 0;
-    const sideInput = this.pointerLocked
-      ? Number(keys.has("d") || keys.has("arrowright")) - Number(keys.has("a") || keys.has("arrowleft"))
-      : 0;
+    const forwardInput = Number(keys.has("w") || keys.has("arrowup")) - Number(keys.has("s") || keys.has("arrowdown"));
+    const sideInput = Number(keys.has("d") || keys.has("arrowright")) - Number(keys.has("a") || keys.has("arrowleft"));
     this.moveForward.set(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
     this.walkDirection.set(
       this.moveForward.x * forwardInput - this.moveForward.z * sideInput,
@@ -335,8 +515,8 @@ export class NicksHouseChapter {
       this.moveForward.z * forwardInput + this.moveForward.x * sideInput,
     );
     if (this.walkDirection.lengthSq() > 1) this.walkDirection.normalize();
-    player.faceCameraDirection(this.moveForward);
-    this.playerSpeed = player.move(forwardInput, sideInput, dt);
+    player.yaw = this.yaw;
+    this.playerSpeed = player.move(forwardInput, sideInput, dt, keys.has(" "));
   }
 
   private updateStory(): void {
@@ -363,7 +543,9 @@ export class NicksHouseChapter {
       for (const crate of this.crates) {
         crate.proxy.position.z += traveled;
         crate.spawn.z += traveled;
+        crate.body.setMotionType(PhysicsMotionType.ANIMATED);
         crate.body.setTransform(crate.proxy.position, crate.proxy.quaternion);
+        crate.body.setLinearVelocity(new THREE.Vector3());
       }
       this.syncMeshes();
 
@@ -377,17 +559,10 @@ export class NicksHouseChapter {
       }
 
       const carZ = carRoot.position.z;
-      if (this.arrivalElapsed < 2.7) {
-        this.cameraDesired.set(9, 3.8, carZ - 8);
-        this.targetDesired.set(0, 1.1, carZ + 1.5);
-      } else {
-        this.cameraDesired.set(7.5, 2.8, carZ - 7.5);
-        this.targetDesired.set(0, 1.15, carZ + 1.8);
-      }
-      const blend = 1 - Math.exp(-3.2 * dt);
-      camera.position.lerp(this.cameraDesired, blend);
-      this.lookAt.lerp(this.targetDesired, blend);
-      camera.lookAt(this.lookAt);
+      const inCarPosition = new THREE.Vector3(-0.34, 0.06, carZ - 0.55);
+      this.player?.setCutscenePosition(inCarPosition, Math.PI);
+      camera.position.set(7.5, 2.8, carZ - 7.5);
+      camera.lookAt(0, 1.15, carZ + 1.8);
       camera.fov = 54;
       camera.updateProjectionMatrix();
 
@@ -395,37 +570,47 @@ export class NicksHouseChapter {
         carRoot.position.z = ARRIVAL_PARK_Z;
         this.arrivalPhase = "entering";
         this.arrivalElapsed = 0;
+        this.player?.setCutscenePosition(new THREE.Vector3(-0.34, 0.06, carRoot.position.z - 0.55), Math.PI);
         for (const crate of this.crates) {
+          crate.body.setMotionType(PhysicsMotionType.DYNAMIC);
           crate.body.setTransform(crate.proxy.position, crate.proxy.quaternion);
-          crate.body.setMotionType(PhysicsMotionType.ANIMATED);
           crate.body.setLinearVelocity(new THREE.Vector3());
         }
-        this.lookAt.copy(this.targetDesired);
       }
       return;
     }
     const progress = THREE.MathUtils.clamp(this.arrivalElapsed / ARRIVAL_CAMERA_BLEND_SECONDS, 0, 1);
     const eased = progress * progress * (3 - 2 * progress);
-    const from = this.cameraDesired.set(7.5, 2.8, ARRIVAL_PARK_Z - 7.5);
-    const to = this.targetDesired.set(0, 1.68, -3.1);
-    camera.position.lerpVectors(from, to, eased);
-    const fromLook = new THREE.Vector3(0, 1.2, -5.5);
-    const toLook = new THREE.Vector3(0, 1.68, 8);
-    this.lookAt.lerpVectors(fromLook, toLook, eased);
+    const exitProgress = THREE.MathUtils.smoothstep(progress, 0.18, 0.82);
+    const parkedCarZ = this.carRoot?.position.z ?? ARRIVAL_PARK_Z;
+    const cutscenePlayerPosition = new THREE.Vector3(-0.34, 0.06, parkedCarZ - 0.55).lerp(new THREE.Vector3(0, 0.06, parkedCarZ - 3.4), exitProgress);
+    this.player?.setCutscenePosition(cutscenePlayerPosition, THREE.MathUtils.lerp(Math.PI, 0, exitProgress));
+    camera.position.lerpVectors(
+      this.cameraDesired.set(7.5, 2.8, ARRIVAL_PARK_Z - 7.5),
+      new THREE.Vector3(0, 1.62, -3.1),
+      eased,
+    );
+    this.lookAt.lerpVectors(
+      this.targetDesired.set(0, 1.15, ARRIVAL_PARK_Z + 1.8),
+      new THREE.Vector3(0, 1.62, -11.1),
+      eased,
+    );
     camera.lookAt(this.lookAt);
     camera.fov = THREE.MathUtils.lerp(54, 68, eased);
     camera.updateProjectionMatrix();
     if (progress >= 1) {
       this.arrivalPhase = "done";
+      this.player?.resumeWalking(new THREE.Vector3(0, 0.06, -3.1), 0);
+      this.player?.setAvatarVisible(false);
       camera.position.set(0, 1.68, -3.1);
-      this.yaw = Math.PI;
+      this.yaw = 0;
       this.pitch = 0;
       this.trunkOpen = false;
       if (this.tailgate) this.tailgate.rotation.x = 0;
       this.syncMeshes();
       this.updateCounter();
       this.updateCamera();
-      this.ctx.say("The porch lamp was lit. WASD to walk · E opens the trunk, then picks up or sets down belongings.", 4.3, true);
+      this.ctx.say("WASD / arrows walk · IJKL look · E opens the trunk and carries / sets down items · hold left mouse on any item to drag it.", 4.3, true);
     }
   }
 
@@ -459,14 +644,38 @@ export class NicksHouseChapter {
       this.room.name = "nicksHouseCustomModel";
       return true;
     });
+    // Give loose cargo a physical floor and sides while the car is moving and parked.
+    const trunkColliders: { name: string; position: [number, number, number]; extents: [number, number, number] }[] = [
+      { name: "trunk-floor", position: [0, 0.59, -1.4], extents: [2.05, 0.12, 1.8] },
+      { name: "trunk-left-wall", position: [-1.03, 0.83, -1.4], extents: [0.13, 0.54, 1.8] },
+      { name: "trunk-right-wall", position: [1.03, 0.83, -1.4], extents: [0.13, 0.54, 1.8] },
+      { name: "trunk-front-wall", position: [0, 0.83, -0.48], extents: [1.8, 0.54, 0.13] },
+    ];
+    for (const { name, position, extents } of trunkColliders) {
+      const collider = new THREE.Mesh(new THREE.BoxGeometry(...extents), new THREE.MeshBasicMaterial({ visible: false }));
+      collider.name = `physics:car-${name}`;
+      collider.position.set(...position);
+      collider.visible = false;
+      group.add(collider);
+      const aggregate = new PhysicsAggregate(collider, PhysicsShapeType.BOX, {
+        mass: 0,
+        friction: 0.72,
+        restitution: 0.02,
+        extents: new THREE.Vector3(...extents),
+        filterMembershipMask: WORLD_COLLISION_MASK,
+        filterCollideMask: WORLD_COLLISION_MASK | PLAYER_COLLISION_MASK,
+      }, this.requirePhysics());
+      aggregate.body.setMotionType(PhysicsMotionType.ANIMATED);
+      this.physicsAggregates.push(aggregate);
+    }
     // Procedural fallback keeps the trunk and belongings visible if an override is absent or fails.
     this.tailgate = createNickCarModel(group, this.trunkHinge);
     const trunkSlots: [number, number, number][] = [
-      [-0.42, 0.48, 0.9], [0.42, 0.48, 0.9], [-0.42, 0.48, 1.78], [0.42, 0.48, 1.78],
-      [-0.42, 1.35, 0.9], [0, 1.35, 1.35], [0.42, 1.35, 0.9],
+      [-0.42, 0.75, -1.8], [0.42, 0.75, -1.8], [-0.42, 0.75, -1.18], [0.42, 0.75, -1.18],
+      [0, 1.3, -1.8], [-0.28, 1.3, -1.18], [0.28, 1.3, -1.18],
     ];
     BELONGINGS.forEach((spec, index) => {
-      const [slotX, slotY, slotZ] = trunkSlots[index] ?? [0, 0.48, 1.3];
+      const [slotX, slotY, slotZ] = trunkSlots[index] ?? [0, 0.75, -1.5];
       const housePosition = new THREE.Vector3(...spec.housePosition);
       const spawn = new THREE.Vector3(slotX, slotY + spec.size / 2, group.position.z + slotZ);
       const target = new THREE.Vector3(housePosition.x, spec.size / 2 + housePosition.y, housePosition.z);
@@ -539,8 +748,10 @@ export class NicksHouseChapter {
       friction: 0.62,
       restitution: 0.12,
       extents: new THREE.Vector3(size, size, size),
+      filterMembershipMask: WORLD_COLLISION_MASK,
+      filterCollideMask: WORLD_COLLISION_MASK | PLAYER_COLLISION_MASK,
     }, this.requirePhysics());
-    aggregate.body.setMotionType(PhysicsMotionType.ANIMATED);
+    aggregate.body.setMotionType(PhysicsMotionType.DYNAMIC);
     this.physicsAggregates.push(aggregate);
     const body = aggregate.body;
     mesh.position.copy(spawn);
@@ -548,39 +759,31 @@ export class NicksHouseChapter {
     this.crates.push({ mesh, proxy, body, size, spawn, destination: new THREE.Vector3(...spec.housePosition), label: spec.name, story: spec.story, delivered: false, storyShown: false, savedTarget: new THREE.Vector3(...spec.housePosition) });
   }
 
-  private readonly onMouseLook = (event: MouseEvent): void => {
-    if (!this.pointerLocked || this.arrivalPhase !== "done") return;
-    this.yaw -= event.movementX * 0.0022;
-    this.pitch = THREE.MathUtils.clamp(this.pitch - event.movementY * 0.0018, -1.2, 1.1);
-    this.updateCamera();
-  };
-
   private trunkDistance(): number {
     if (!this.player || !this.carRoot) return Infinity;
-    this.trunkPosition.set(0, 0, 2.72).applyQuaternion(this.carRoot.quaternion).add(this.carRoot.position);
-    this.trunkPosition.z = this.carRoot.position.z + 2.72;
+    this.trunkPosition.set(0, 0, -2.72).applyQuaternion(this.carRoot.quaternion).add(this.carRoot.position);
+    this.trunkPosition.z = this.carRoot.position.z - 2.72;
     return Math.hypot(this.player.position.x - this.trunkPosition.x, this.player.position.z - this.trunkPosition.z);
   }
 
   private interactWithTrunkOrBelonging(): void {
     if (!this.player) return;
-    if (this.dragged) {
+    if (this.dragged && !this.grabbedCrate) {
       const crate = this.dragged;
       this.updateHeldObject();
       this.dragged = null;
       crate.body.setMotionType(PhysicsMotionType.DYNAMIC);
       crate.body.setTransform(crate.proxy.position, crate.proxy.quaternion);
-      crate.body.setLinearVelocity(this.walkDirection.clone().multiplyScalar(0.7));
+      crate.body.setLinearVelocity(this.walkDirection.clone().multiplyScalar(0.45));
       crate.body.setAngularVelocity(new THREE.Vector3());
       this.player.setCarrying(false);
-      this.ctx.say(crate.proxy.position.z <= THRESHOLD_Z ? `${crate.label} made it inside.` : `${crate.label} set down. Press E to carry it again.`, 2.2, true);
+      this.ctx.say(crate.proxy.position.z >= THRESHOLD_Z ? `${crate.label} made it inside.` : `${crate.label} set down. Press E to carry it again.`, 2.2, true);
       return;
     }
-
     const trunkDistance = this.trunkDistance();
     if (this.trunkOpen && trunkDistance <= 3.8) {
       const nearest = this.crates
-        .filter((crate) => !crate.delivered && crate.proxy.position.z > THRESHOLD_Z)
+        .filter((crate) => !crate.delivered && crate.proxy.position.distanceTo(this.carRoot!.position) < 4.2)
         .map((crate) => ({ crate, distance: crate.proxy.position.distanceTo(this.playerFocus.copy(this.player!.position).add(new THREE.Vector3(0, 0.8, 0))) }))
         .filter(({ distance }) => distance <= 2.35)
         .sort((a, b) => a.distance - b.distance)[0]?.crate;
@@ -598,12 +801,24 @@ export class NicksHouseChapter {
 
     if (trunkDistance <= 3.2) {
       this.trunkOpen = !this.trunkOpen;
+      if (this.tailgate) this.tailgate.rotation.x = this.trunkOpen ? -Math.PI / 2 : 0;
       this.updateCounter();
-      this.ctx.say(this.trunkOpen ? "The trunk is open. Press E beside a belonging to pick it up." : "The trunk is closed.", 2.8, true);
+      this.ctx.say(this.trunkOpen ? "The trunk is open. Press E beside a belonging to carry it." : "The trunk is closed.", 2.8, true);
       return;
     }
 
-    this.ctx.say("Go to the back of Nick's car and press E to open the trunk.", 2.5, true);
+    const nearest = this.crates
+      .filter((crate) => !crate.delivered && crate.proxy.position.distanceTo(this.player!.position) <= 2.2)
+      .sort((a, b) => a.proxy.position.distanceTo(this.player!.position) - b.proxy.position.distanceTo(this.player!.position))[0];
+    if (nearest) {
+      this.dragged = nearest;
+      nearest.body.setMotionType(PhysicsMotionType.DYNAMIC);
+      nearest.body.setLinearVelocity(new THREE.Vector3());
+      this.player.setCarrying(true);
+      this.ctx.say(`${nearest.label} in hand. Carry it through the doorway and press E to set it down.`, 3.2, true);
+      return;
+    }
+    this.ctx.say("Move close to a belonging or the back of Nick's car, then press E.", 2.5, true);
   }
 
   private updateTrunk(dt: number): void {
@@ -617,11 +832,25 @@ export class NicksHouseChapter {
     const crate = this.dragged;
     const player = this.player;
     if (!crate || !player) return;
-    const forward = this.moveForward.set(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
-    this.dragTarget.copy(player.position).addScaledVector(forward, 0.9);
-    this.dragTarget.y = crate.size / 2 + 0.12;
-    crate.body.setLinearVelocity(this.dragTarget.clone().sub(crate.proxy.position).multiplyScalar(15));
-    crate.body.setAngularVelocity(new THREE.Vector3());
+    if (this.grabbedCrate) {
+      this.raycaster.setFromCamera(this.mouseNdc, this.ctx.camera);
+      this.mouseGrabTarget.copy(this.raycaster.ray.origin).addScaledVector(this.raycaster.ray.direction, this.grabDistance);
+      this.mouseGrabTarget.y = Math.max(crate.size / 2 + 0.08, this.mouseGrabTarget.y);
+      this.grabVelocity.copy(this.mouseGrabTarget).sub(crate.proxy.position).multiplyScalar(14);
+      if (this.grabVelocity.length() > 9) this.grabVelocity.setLength(9);
+      crate.body.setLinearVelocity(this.grabVelocity);
+      crate.body.setAngularVelocity(new THREE.Vector3());
+    } else {
+      this.moveForward.set(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
+      this.mouseGrabTarget.copy(player.position).addScaledVector(this.moveForward, 0.9).add(new THREE.Vector3(0, 0.72, 0));
+      this.mouseGrabTarget.y = Math.max(crate.size / 2 + 0.08, this.mouseGrabTarget.y);
+      if (crate.body.motionType !== PhysicsMotionType.DYNAMIC) crate.body.setMotionType(PhysicsMotionType.DYNAMIC);
+      const carryVelocity = this.mouseGrabTarget.clone().sub(crate.proxy.position).multiplyScalar(12);
+      if (carryVelocity.length() > 8) carryVelocity.setLength(8);
+      crate.body.setLinearVelocity(carryVelocity);
+      crate.body.setAngularVelocity(new THREE.Vector3());
+    }
+    player.setCarrying(true, this.mouseGrabTarget);
   }
 
   private simulateCrates(_dt: number): void {
@@ -632,11 +861,6 @@ export class NicksHouseChapter {
 
   private syncMeshes(): void {
     for (const crate of this.crates) {
-      if (crate.delivered) {
-        crate.mesh.position.copy(crate.savedTarget);
-        crate.proxy.position.copy(crate.savedTarget);
-        continue;
-      }
       crate.mesh.position.copy(crate.proxy.position);
       crate.mesh.quaternion.copy(crate.proxy.quaternion);
     }
@@ -645,11 +869,12 @@ export class NicksHouseChapter {
   private respawnStragglers(): void {
     for (const crate of this.crates) {
       const { position } = crate.proxy;
+      if (crate.delivered) continue;
       const lost = position.y < -4 || Math.abs(position.x) > ROOM_HALF + 4 || Math.abs(position.z) > ROOM_HALF + 5;
       if (!lost) continue;
       crate.proxy.position.copy(crate.spawn);
       crate.proxy.quaternion.identity();
-      crate.body.setMotionType(PhysicsMotionType.ANIMATED);
+      crate.body.setMotionType(PhysicsMotionType.DYNAMIC);
       crate.body.setTransform(crate.proxy.position, crate.proxy.quaternion);
       crate.body.setLinearVelocity(new THREE.Vector3());
       crate.body.setAngularVelocity(new THREE.Vector3());
@@ -665,6 +890,12 @@ export class NicksHouseChapter {
       if (crate.delivered || crate.proxy.position.z < THRESHOLD_Z) continue;
       if (Math.abs(crate.proxy.position.x) > DOOR_HALF || crate.proxy.position.y > DOOR_HEIGHT) continue;
       crate.delivered = true;
+      if (this.grabbedCrate === crate) {
+        this.grabbedCrate = null;
+        this.pointerHeld = false;
+        this.grabVelocity.set(0, 0, 0);
+        document.getElementById("crosshair")?.classList.remove("is-grabbing");
+      }
       if (this.dragged === crate) {
         this.dragged = null;
         this.player?.setCarrying(false);

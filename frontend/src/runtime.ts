@@ -7,7 +7,7 @@ import { Car } from "./car";
 import { Myrtle } from "./ragdoll";
 import { GameAudio } from "./audio";
 import { CHAPTERS, type ChapterDef } from "./chapters/registry";
-import type { Chapter, ChapterContext, ChapterOutcome, PointerInput } from "./chapters/types";
+import type { Chapter, ChapterContext, ChapterOutcome } from "./chapters/types";
 import { ENGINE_CONFIG } from "./config";
 import { createScenePostProcessing, type ScenePostProcessing } from "./postprocessing";
 import { disposeObjectTree } from "./scene-resources";
@@ -55,12 +55,6 @@ const keys = new Set<string>();
 const keyListeners = new Set<(key: string) => void>();
 function emitKey(key: string) { keys.add(key); for (const handler of keyListeners) handler(key); }
 
-// Pointer steering: positive steer means game-right. Keyboard steering is
-// applied by the driving chapter when A/D or the arrow keys are held.
-const pointer: PointerInput = { steer: 0 };
-let pointerX = 0.5;
-let pointerInside = false;
-
 const MENU_RENDER_INTERVAL = ENGINE_CONFIG.ui.menuRenderInterval;
 type ShellPhase = "boot" | "menu" | "playing" | "result";
 let shell: ShellPhase = "boot";
@@ -82,7 +76,7 @@ async function boot(initialChapterId: string, onReady: () => void): Promise<void
   if (!selectedDef?.create) throw new Error(`Unknown or locked chapter: ${initialChapterId}`);
   const isValley = selectedDef.scene !== "west-egg";
   postProcessing?.dispose();
-  postProcessing = createScenePostProcessing(engine, scene, camera, isValley);
+  postProcessing = createScenePostProcessing(engine, scene, camera, isValley ? 0.65 : 0.52);
   postProcessingResize?.abort();
   postProcessingResize = new AbortController();
   window.addEventListener("resize", () => postProcessing?.resize(window.innerWidth, window.innerHeight), { signal: postProcessingResize.signal });
@@ -133,23 +127,14 @@ async function boot(initialChapterId: string, onReady: () => void): Promise<void
     captionTimer = hold;
   };
   ctx = {
-    scene, engine, camera, physics, ...(isValley ? { car, myrtle, world } : {}), audio, keys, pointer,
+    scene, engine, camera, physics, ...(isValley ? { car, myrtle, world } : {}), audio, keys,
     dom: { hud, speedValue, gearValue, distanceValue, subtitle, flash, letterbox, titleFlash: (text) => say(text, 1.4, true) },
     onKey: (handler) => { keyListeners.add(handler); return () => { keyListeners.delete(handler); }; },
     say,
   };
 
-  // Mouse position drives steering. Moving the pointer across the window left
-  // to right steers the car left to right, with a constant random oscillation
-  // superimposed on the wheel.
   runtimeEvents = new AbortController();
   const eventOptions = { signal: runtimeEvents.signal };
-  window.addEventListener("mousemove", (event) => {
-    pointerX = event.clientX / window.innerWidth;
-    pointerInside = true;
-  }, { passive: true, ...eventOptions });
-  window.addEventListener("mouseenter", () => { pointerInside = true; }, eventOptions);
-  window.addEventListener("mouseleave", () => { pointerInside = false; }, eventOptions);
   window.addEventListener("resize", () => {
     camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
   }, eventOptions);
@@ -301,23 +286,13 @@ function render(now: number, delta: number) {
   const realDt = Math.min(delta, 0.05);
   if (realDt < 0.0005) return;
 
-  // Mouse position steers only when the pointer is inside the game window.
-  if (shell === "playing" && car) {
-    const rawTarget = pointerInside ? (pointerX * 2 - 1) : 0;
-    const targetSteer = Math.max(-1, Math.min(1, rawTarget));
-    const blend = 1 - Math.exp(-realDt * 18);
-    pointer.steer += (targetSteer - pointer.steer) * blend;
-  } else {
-    pointer.steer = 0;
-  }
-
   if (cameraMotionEnabled && shell === "playing" && car && lastDef?.scene !== "west-egg") {
     const speedRatio = Math.min(Math.abs(car?.speed ?? 0) / 31, 1);
-    cameraXTo?.(ENGINE_CONFIG.camera.driverPos.x + pointer.steer * 0.22);
+    cameraXTo?.(ENGINE_CONFIG.camera.driverPos.x);
     cameraYTo?.(ENGINE_CONFIG.camera.driverPos.y + speedRatio * 0.07);
     cameraZTo?.(ENGINE_CONFIG.camera.driverPos.z - speedRatio * 0.28);
     cameraFovTo?.(ENGINE_CONFIG.camera.defaultFov + speedRatio * 2.2);
-    aimXTo?.(ENGINE_CONFIG.camera.driverTarget.x + pointer.steer * 0.35);
+    aimXTo?.(ENGINE_CONFIG.camera.driverTarget.x);
     camera.lookAt(cameraAim.x, cameraAim.y, cameraAim.z);
   } else if (cameraMotionEnabled && shell !== "playing") {
     cameraXTo?.(ENGINE_CONFIG.camera.driverPos.x);
@@ -350,7 +325,8 @@ function render(now: number, delta: number) {
       gsap.set([timerFill, lowTimePulse], { autoAlpha: 0 });
     }
     const dt = Math.min(realDt, 1 / 30);
-    if (physics) physics.setTimeStep(dt);
+    const physicsScale = playingChapter?.physicsScale ?? 1;
+    if (physics) physics.setTimeStep(dt * physicsScale);
     playingChapter?.update(dt);
     if (playingChapter && playingChapter.outcome() !== "pending") endGame(playingChapter.outcome());
     physics?.step();

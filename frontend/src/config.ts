@@ -12,9 +12,9 @@ export const ENGINE_CONFIG = {
     powerPreference: "high-performance",
     carGamePostProcessing: {
       pixelSize: 3,
-      bloomStrength: 2.35,
-      bloomRadius: 0.88,
-      bloomThreshold: 0.18,
+      bloomStrength: 0.65,
+      bloomRadius: 0.58,
+      bloomThreshold: 0.58,
     },
   },
   physics: {
