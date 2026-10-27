@@ -1,16 +1,4 @@
-/**
- * Chapter XV tuning. The numbers that describe the sea and the boat live in
- * `water.ts` beside the simulation that uses them; everything here is about
- * how the chapter looks, sounds in its captions, and takes the player's drag.
- */
-
-/** Pointer travel as a fraction of the window height for one full stroke. */
-export const DRAG_SPAN = 0.42;
-/** Pointer drift as a fraction of the window width that trims both oars fully. */
-export const TRIM_SPAN = 0.16;
-/** Stroke position where the blades leave the water and where they catch it again. */
-export const STROKE_RELEASE = 0.55;
-export const STROKE_CATCH = -0.25;
+/** Chapter XV camera, ocean, and environmental tuning. */
 
 export const CAMERA_BEHIND = 6.4;
 export const CAMERA_HEIGHT = 2.3;
@@ -44,9 +32,9 @@ export interface Beat {
 }
 
 export const BEATS: Beat[] = [
-  { distance: 126, text: "The oars go into black water. Behind you the last windows of West Egg, ahead of you a single green light.", hold: 5, done: false },
-  { distance: 106, text: "There is nothing on the Sound but the rowing, and the rowing is the only sound there is.", hold: 4.4, done: false },
+  { distance: 126, text: "The sail lifts in the night wind. Behind you the last windows of West Egg, ahead a single green light.", hold: 5, done: false },
+  { distance: 106, text: "There is nothing on the Sound but the wind, and the wind is the only sound there is.", hold: 4.4, done: false },
   { distance: 90, text: "The green light at the end of Daisy's dock has burned all summer. It has not moved.", hold: 4.4, done: false },
-  { distance: 74, text: "The current leans against the blades now. Pull through it.", hold: 3.6, done: false },
+  { distance: 74, text: "The current leans hard against the hull now. Keep the yacht on course.", hold: 3.6, done: false },
   { distance: 58, text: "The light draws back as though it resented the reach of the hand.", hold: 4.4, done: false },
 ];

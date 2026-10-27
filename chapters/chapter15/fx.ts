@@ -42,9 +42,8 @@ interface Drop {
 const DEAD_Y = -400;
 
 /**
- * The boat's handwriting in the water: expanding rings where a blade bites or
- * the bow pushes, and short-lived drops thrown clear of the oars. Both are
- * pooled so a stroke never allocates.
+ * The yacht's handwriting in the water: expanding rings from the bow and short-
+ * lived spray thrown from its wake. Both are pooled to avoid frame allocations.
  */
 export class SplashField {
   readonly group = new THREE.Group();
@@ -84,7 +83,7 @@ export class SplashField {
     this.group.add(this.points);
   }
 
-  /** A ring on the surface, for a blade going in or the bow shouldering water aside. */
+  /** A ring on the surface from the bow or wake. */
   ripple(x: number, z: number, strength: number): void {
     let oldest = this.ripples[0];
     for (const ripple of this.ripples) {
@@ -99,7 +98,7 @@ export class SplashField {
     oldest.mesh.visible = true;
   }
 
-  /** Drops thrown clear of the blades, or off the bow when it lifts. */
+  /** Drops thrown clear of the bow or wake. */
   spray(x: number, y: number, z: number, strength: number): void {
     const drop = this.drops[this.cursor];
     const index = this.cursor * 3;

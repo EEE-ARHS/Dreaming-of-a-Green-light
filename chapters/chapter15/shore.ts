@@ -1,9 +1,10 @@
 import * as THREE from "three";
+import { SEA } from "./water";
 
 export interface Shore {
   readonly group: THREE.Group;
-  /** The light stands at `lightZ`; its reflection reaches back toward the camera. */
-  update(lightZ: number, cameraZ: number, time: number): void;
+  /** Light grows in view as the yacht draws nearer; its reflection reaches the camera. */
+  update(lightZ: number, cameraZ: number, time: number, distance: number): void;
 }
 
 /**
@@ -58,27 +59,27 @@ export function createShore(glow: THREE.Texture): Shore {
   landmark.add(post);
   addBlock(darkMaterial, 0.34, 0.22, 0.34, 0, 2.16, 0);
 
-  const lamp = new THREE.PointLight(0x5cff9e, 6, 85, 1.7);
+  const lamp = new THREE.PointLight(0x5cff9e, 24, 180, 1.7);
   lamp.name = "chapter15-lamp";
   lamp.position.set(0, 2.3, 0);
   landmark.add(lamp);
-  const core = new THREE.Mesh(new THREE.SphereGeometry(0.085, 10, 8), new THREE.MeshBasicMaterial({ color: 0xe8ffee, toneMapped: false, fog: false }));
+  const core = new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 8), new THREE.MeshBasicMaterial({ color: 0xe8ffee, toneMapped: false, fog: false }));
   core.position.set(0, 2.3, 0);
   landmark.add(core);
 
   const halo = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: glow, color: 0x46ff92, transparent: true, opacity: 0.78,
+    map: glow, color: 0x46ff92, transparent: true, opacity: 0.96,
     blending: THREE.AdditiveBlending, depthWrite: false, fog: false,
   }));
   halo.position.set(0, 2.3, 0);
-  halo.scale.setScalar(6.4);
+  halo.scale.setScalar(8.6);
   landmark.add(halo);
   const aura = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: glow, color: 0x1f8f52, transparent: true, opacity: 0.2,
+    map: glow, color: 0x1f8f52, transparent: true, opacity: 0.34,
     blending: THREE.AdditiveBlending, depthWrite: false, fog: false,
   }));
   aura.position.set(0, 2.3, 0);
-  aura.scale.setScalar(22);
+  aura.scale.setScalar(30);
   landmark.add(aura);
 
   // The light's path on the water, stretched back toward the boat.
@@ -94,15 +95,17 @@ export function createShore(glow: THREE.Texture): Shore {
 
   return {
     group,
-    update(lightZ: number, cameraZ: number, time: number): void {
+    update(lightZ: number, cameraZ: number, time: number, distance: number): void {
       landmark.position.z = lightZ;
       const reach = THREE.MathUtils.clamp(Math.abs(cameraZ - lightZ), 16, 70);
       reflection.position.set(0, 0.14, lightZ - 5);
       reflection.scale.set(1, 1, reach / 52);
       reflection.material.opacity = 0.15 + Math.abs(Math.sin(time * 0.9)) * 0.08;
-      lamp.intensity = 5.4 + Math.sin(time * 2.1) * 0.4;
-      halo.scale.setScalar(6.4 + Math.sin(time * 1.35) * 0.3);
-      halo.material.opacity = 0.7 + Math.sin(time * 1.35) * 0.1;
+      const approach = 1 + (1 - THREE.MathUtils.clamp(distance / SEA.lightZ, 0, 1)) * 2.2;
+      lamp.intensity = (22 + Math.sin(time * 2.1) * 1.2) * approach;
+      halo.scale.setScalar((8.6 + Math.sin(time * 1.35) * 0.4) * approach);
+      aura.scale.setScalar(30 * approach);
+      halo.material.opacity = 0.92 + Math.sin(time * 1.35) * 0.06;
     },
   };
 }

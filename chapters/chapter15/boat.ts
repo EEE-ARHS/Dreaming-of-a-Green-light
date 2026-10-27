@@ -1,48 +1,29 @@
 import * as THREE from "three";
 
-const OARLOCK_X = 0.63;
-const OARLOCK_Y = 0.44;
-const OARLOCK_Z = 0.05;
-const INBOARD = 0.85;
-const OUTBOARD = 2;
-const BLADE_CENTRE = 1.88;
-/** Blade sweep, in radians from the catch (blades forward) to the finish (blades aft). */
-const SWEEP_CATCH = -0.95;
-const SWEEP_FINISH = 0.58;
-/** The oar rolls the blade down into the water, and feathers it clear again. */
-const DIP = -0.3;
-const RISE = 0.22;
-const LIFT_RATE = 18;
-/** The rower slides with the stroke, from the catch to the finish. */
-const SEAT_CATCH = -0.55;
-const SEAT_FINISH = -0.2;
-
-export interface RowboatRig {
+export interface SailingYachtRig {
   readonly root: THREE.Group;
-  /**
-   * `stroke` runs -1 (catch) to 1 (finish); `trim` favours one oar when
-   * steering; `bladeDown` says whether the blades are in the water or feathered
-   * clear of it.
-   */
-  setStroke(stroke: number, trim: number, bladeDown: boolean, dt: number): void;
-  /** World position of a blade, for splash rings and water contact. */
-  bladePosition(side: number, out: THREE.Vector3): THREE.Vector3;
+  setSail(steering: number, wind: number, dt: number): void;
 }
 
 /**
- * A clinker rowboat built from scratch: a tapered hull, two oars that sweep and
- * dip, and a dark figure sliding between them. The oars are the only moving
- * parts the player ever touches, so they get the detail.
+ * A moonlit sailing yacht with a swept triangular sail, cabin and helm.
  */
-export function createRowboat(): RowboatRig {
+export function createSailingYacht(): SailingYachtRig {
   const root = new THREE.Group();
   root.name = "chapter15-boat";
 
-  const hullMaterial = new THREE.MeshStandardMaterial({ color: 0x5a4632, roughness: 0.58, metalness: 0.1, side: THREE.DoubleSide, emissive: 0x1a1008, emissiveIntensity: 0.55 });
-  const trimMaterial = new THREE.MeshStandardMaterial({ color: 0x6a5638, roughness: 0.55, metalness: 0.12 });
-  const oarMaterial = new THREE.MeshStandardMaterial({ color: 0x7a5d3a, roughness: 0.45, metalness: 0.08, side: THREE.DoubleSide, emissive: 0x241608, emissiveIntensity: 0.4 });
-  const fittingMaterial = new THREE.MeshStandardMaterial({ color: 0x526068, roughness: 0.45, metalness: 0.6 });
-  const figureMaterial = new THREE.MeshStandardMaterial({ color: 0x363e48, roughness: 0.9, metalness: 0.05 });
+  const warmBoatLight = new THREE.PointLight(0xffd29a, 1.8, 6, 2);
+  warmBoatLight.position.set(-0.65, 2.25, 0.15);
+  root.add(warmBoatLight);
+  const coolBoatFill = new THREE.PointLight(0xbdd7ff, 1.2, 7, 2);
+  coolBoatFill.position.set(0.7, 2.2, -0.35);
+  root.add(coolBoatFill);
+
+  const hullMaterial = new THREE.MeshStandardMaterial({ color: 0x9b8060, roughness: 0.42, metalness: 0.16, side: THREE.DoubleSide, emissive: 0x302315, emissiveIntensity: 0.8 });
+  const trimMaterial = new THREE.MeshStandardMaterial({ color: 0xc1a77e, roughness: 0.46, metalness: 0.2, emissive: 0x25190d, emissiveIntensity: 0.45 });
+  const sailMaterial = new THREE.MeshStandardMaterial({ color: 0xf4f1e8, roughness: 1, metalness: 0, side: THREE.DoubleSide, emissive: 0x9aabc9, emissiveIntensity: 0.5 });
+  const fittingMaterial = new THREE.MeshStandardMaterial({ color: 0x8998a2, roughness: 0.38, metalness: 0.72, emissive: 0x19232b, emissiveIntensity: 0.35 });
+  const figureMaterial = new THREE.MeshStandardMaterial({ color: 0x9eacc0, roughness: 0.78, metalness: 0.05, emissive: 0x2d3b52, emissiveIntensity: 0.65 });
 
   const hull = new THREE.Mesh(taperedHull(), hullMaterial);
   hull.name = "chapter15-hull";
@@ -60,67 +41,58 @@ export function createRowboat(): RowboatRig {
   deck.position.set(0, 0.42, -1.28);
   root.add(deck);
 
-  const oarlockGeometry = new THREE.CylinderGeometry(0.045, 0.055, 0.17, 8);
-  const oarShaftGeometry = new THREE.CylinderGeometry(0.028, 0.032, INBOARD + OUTBOARD, 8);
-  const oarHandleGeometry = new THREE.CylinderGeometry(0.034, 0.034, 0.3, 8);
-  const bladeGeometry = new THREE.BoxGeometry(0.82, 0.34, 0.04);
+  const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.075, 3.45, 10), fittingMaterial);
+  mast.position.set(0, 1.82, -0.12);
+  root.add(mast);
+  const sail = new THREE.Group();
+  sail.name = "chapter15-main-sail";
+  sail.position.set(0, 0.18, -0.1);
+  root.add(sail);
+  const sailGeometry = new THREE.BufferGeometry();
+  sailGeometry.setAttribute("position", new THREE.Float32BufferAttribute([
+    0, 0.28, 0.04, 0, 3.35, 0.04, 1.9, 0.42, 0.04,
+    0, 0.28, 0.04, 1.9, 0.42, 0.04, 1.25, 0.08, 0.04,
+  ], 3));
+  sailGeometry.computeVertexNormals();
+  const mainsail = new THREE.Mesh(sailGeometry, sailMaterial);
+  mainsail.name = "chapter15-luminous-sail";
+  sail.add(mainsail);
+  const boom = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 1.9, 8), fittingMaterial);
+  boom.rotation.z = Math.PI / 2;
+  boom.position.set(0.95, 0.3, 0.04);
+  sail.add(boom);
+  const cabin = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.48, 1.12), trimMaterial);
+  cabin.position.set(0, 0.43, -0.82);
+  root.add(cabin);
+  const cabinWindowMaterial = new THREE.MeshStandardMaterial({ color: 0x91bfd0, roughness: 0.2, metalness: 0.38, emissive: 0x36637a, emissiveIntensity: 1.1 });
+  const cabinWindow = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.2, 0.035), cabinWindowMaterial);
+  cabinWindow.position.set(0, 0.55, -0.245);
+  root.add(cabinWindow);
+  const helm = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.025, 8, 20), fittingMaterial);
+  helm.position.set(0, 0.77, -1.28);
+  root.add(helm);
 
-  const bladeMaterial = new THREE.MeshStandardMaterial({ color: 0x8a663e, roughness: 0.5, metalness: 0.06, side: THREE.DoubleSide, emissive: 0x442410, emissiveIntensity: 0.7 });
-  const collarGeometry = new THREE.CylinderGeometry(0.05, 0.05, 0.12, 8);
+  const skipper = new THREE.Group();
+  skipper.name = "chapter15-skipper";
+  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.14, 0.28, 4, 10), figureMaterial);
+  torso.position.set(0, 0.62, -1.05);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 10), figureMaterial);
+  head.position.set(0, 0.92, -1.05);
+  skipper.add(torso, head);
+  root.add(skipper);
 
-  const rower = new THREE.Group();
-  rower.name = "chapter15-rower";
-  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.17, 0.36, 4, 10), figureMaterial);
-  torso.position.set(0, 0.72, 0);
-  const shoulders = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.14, 0.2), figureMaterial);
-  shoulders.position.set(0, 0.9, 0);
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.11, 12, 10), figureMaterial);
-  head.position.set(0, 1.05, 0);
-  rower.add(torso, shoulders, head);
-  root.add(rower);
-
-  const oars: { pivot: THREE.Group; lift: THREE.Group; blade: THREE.Mesh; side: number }[] = [];
-  for (const side of [1, -1]) {
-    const pivot = new THREE.Group();
-    pivot.position.set(side * OARLOCK_X, OARLOCK_Y, OARLOCK_Z);
-    const lift = new THREE.Group();
-    pivot.add(lift);
-    const shaft = new THREE.Mesh(oarShaftGeometry, oarMaterial);
-    shaft.rotation.z = (-side * Math.PI) / 2;
-    shaft.position.x = (side * (OUTBOARD - INBOARD)) / 2;
-    const handle = new THREE.Mesh(oarHandleGeometry, oarMaterial);
-    handle.rotation.z = (-side * Math.PI) / 2;
-    handle.position.x = side * -(INBOARD - 0.15);
-    const collar = new THREE.Mesh(collarGeometry, fittingMaterial);
-    collar.rotation.z = (-side * Math.PI) / 2;
-    const blade = new THREE.Mesh(bladeGeometry, bladeMaterial);
-    blade.position.x = side * BLADE_CENTRE;
-    lift.add(shaft, handle, collar, blade);
-    root.add(pivot);
-    const oarlock = new THREE.Mesh(oarlockGeometry, fittingMaterial);
-    oarlock.position.set(side * OARLOCK_X, OARLOCK_Y - 0.06, OARLOCK_Z);
-    root.add(oarlock);
-    oars.push({ pivot, lift, blade, side });
-  }
-
-  let currentLift = RISE;
+  const mastLight = new THREE.PointLight(0xffd49a, 2.8, 8, 2);
+  mastLight.position.set(-0.45, 2.5, 0.15);
+  root.add(mastLight);
+  const moonFill = new THREE.PointLight(0xc7ddff, 2, 8, 2);
+  moonFill.position.set(0.75, 1.8, -0.15);
+  root.add(moonFill);
   return {
     root,
-    setStroke(stroke: number, trim: number, bladeDown: boolean, dt: number): void {
-      const t = THREE.MathUtils.clamp((stroke + 1) / 2, 0, 1);
-      const sweep = THREE.MathUtils.lerp(SWEEP_CATCH, SWEEP_FINISH, t);
-      const target = bladeDown ? DIP : RISE;
-      currentLift += (target - currentLift) * Math.min(1, LIFT_RATE * Math.max(0, dt));
-      for (const oar of oars) {
-        oar.pivot.rotation.y = oar.side * (sweep + trim * 0.12);
-        oar.lift.rotation.z = oar.side * currentLift;
-      }
-      rower.position.z = THREE.MathUtils.lerp(SEAT_CATCH, SEAT_FINISH, t) + trim * 0.04;
-      rower.rotation.x = 0.1 * t;
-    },
-    bladePosition(side: number, target: THREE.Vector3): THREE.Vector3 {
-      const oar = oars.find((item) => item.side === side) ?? oars[0];
-      return oar.blade.getWorldPosition(target);
+    setSail(steering: number, wind: number, dt: number): void {
+      sail.rotation.y += (steering * 0.38 - sail.rotation.y) * Math.min(1, 4 * Math.max(0, dt));
+      sail.rotation.z = Math.sin(wind) * 0.035;
+      mainsail.scale.x = 0.96 + Math.sin(wind * 0.7) * 0.05;
     },
   };
 }

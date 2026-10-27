@@ -1,15 +1,12 @@
 /**
  * Chapter XV — the water itself.
  *
- * The sea, the current and the rowboat's motion live here as plain numbers, so
- * the chapter's single promise can be simulated and checked without a
- * renderer: the green light is never reached. Nothing in this file touches
- * Three.js or the DOM — `ocean.ts`, `boat.ts` and `index.ts` give it a body.
+ * The sea, current, sail response and yacht motion live here as plain numbers,
+ * so wave forces can be simulated without a renderer. `ocean.ts`, `boat.ts` and
+ * `index.ts` give this model a visible body.
  *
- * The numbers below were tuned against `stepBoat` rather than by eye. A
- * tireless rower who never misses the water stalls about thirty metres short
- * of the light; a good, human stroke stalls about fifty metres short. Both are
- * short, and the water keeps the difference.
+ * The tuning below was balanced against `stepBoat` rather than by eye. A
+ * yacht's sail, the ocean current, and wave-driven motion are simulated here.
  */
 
 export interface SeaTuning {
@@ -38,36 +35,27 @@ export interface SeaTuning {
   dragLongQuad: number;
   dragLat: number;
   dragLatQuad: number;
-  /**
-   * The oars do work rather than push for a set time: a stroke hands the boat a
-   * fixed amount of speed however long the rower takes over it, so a fast
-   * cadence buys power and a careful one still moves the boat.
-   */
-  strokeImpulse: number;
-  /** Ceiling on how fast a stroke can be dragged, in stroke units per second. */
-  strokeRateCap: number;
-  /** How buried a blade has to be before it is pulling with everything it has. */
-  bladeDepth: number;
-  /** Yaw of a full stroke rowed harder on one side, and how the hull sheds rotation. */
+  /** Acceleration from the yacht's wind-filled sail. */
+  sailImpulse: number;
+  /** Steering response and rotational damping. */
   turnRate: number;
   yawDamp: number;
-  /** Attitude: how the swell and the stroke move the boat. */
+  /** Attitude from wave height around the hull. */
   hullHalfLength: number;
   hullHalfBeam: number;
-  strokePitch: number;
   trimRoll: number;
   /** Progress tracking: when the chapter decides the light will not be reached. */
   progressWindow: number;
   progressSample: number;
-  /** How fast a rower must be going before the chapter lets them keep rowing. */
+  /** Minimum forward progress before the chapter marks the yacht stalled. */
   stallRate: number;
-  /** How long a rower can coast after a pull before the chapter counts them idle. */
-  pullingGrace: number;
-  /** The fraction of the sea the rower must have covered before the chapter stops pressing. */
+  /** Grace before a persistent stall can end the sailing. */
+  stallGrace: number;
+  /** Fraction of the voyage required before stall pressure can end the chapter. */
   progressGate: number;
-  /** The longest a rower may keep rowing without moving before the chapter ends. */
+  /** The longest the yacht may make no progress before the chapter ends. */
   wallSeconds: number;
-  /** The night ends by itself this long after the rowing, and this long in total. */
+  /** Overall maximum sailing time. */
   idleLimit: number;
   timeLimit: number;
 }
@@ -90,19 +78,16 @@ export const SEA: SeaTuning = {
   dragLongQuad: 0.05,
   dragLat: 2.6,
   dragLatQuad: 0.35,
-  strokeImpulse: 1.6,
-  strokeRateCap: 5,
-  bladeDepth: 0.22,
+  sailImpulse: 3.2,
   turnRate: 1.6,
   yawDamp: 1.9,
   hullHalfLength: 1.5,
   hullHalfBeam: 0.45,
-  strokePitch: 0.015,
   trimRoll: 0.025,
   progressWindow: 8,
   progressSample: 0.25,
   stallRate: 0.35,
-  pullingGrace: 2.5,
+  stallGrace: 2.5,
   progressGate: 0.66,
   wallSeconds: 4.5,
   idleLimit: 30,
@@ -119,31 +104,29 @@ export interface BoatState {
   yawRate: number;
 }
 
-/** What the oars are doing this frame. */
-export interface RowingInput {
+/** What is driving the yacht this frame. */
+export interface SailingInput {
   /** Acceleration along the keel, in metres per second squared. */
   thrust: number;
-  /** 0 for a feathered blade, 1 for a stroke pulling with everything it has. */
+  /** 0 for no sail pressure, 1 for full wind. */
   effort: number;
-  /** -1 (port) to 1 (starboard): the way the rower is asking the boat to turn. */
+  /** -1 (port) to 1 (starboard): requested rudder direction. */
   trim: number;
 }
 
-export interface StrokePower {
+export interface SailPower {
   thrust: number;
   effort: number;
 }
 
 /**
- * How hard a stroke is telling on the boat. `rate` is how quickly the stroke is
- * being rowed, in stroke units per second, and `depth` is how far under the
- * surface the blades are.
+ * Convert steady sail power into usable acceleration. Retained as a small pure
+ * tuning helper alongside the current and hull model.
  */
-export function strokePower(rate: number, depth: number): StrokePower {
-  if (rate <= 0 || depth <= 0) return { thrust: 0, effort: 0 };
-  const effort = Math.min(rate, SEA.strokeRateCap) / SEA.strokeRateCap;
-  const bite = clamp01(0.45 + depth / SEA.bladeDepth);
-  return { thrust: SEA.strokeImpulse * Math.min(rate, SEA.strokeRateCap) * bite, effort: effort * bite };
+export function sailPower(wind: number, trim: number): SailPower {
+  const windForce = clamp01(wind);
+  const trimEfficiency = 1 - 0.25 * Math.abs(Math.max(-1, Math.min(1, trim)));
+  return { thrust: SEA.sailImpulse * windForce * trimEfficiency, effort: windForce };
 }
 
 export interface BoatAttitude {
@@ -186,7 +169,7 @@ export interface WaveSample {
 }
 
 /**
- * Sum of long swells: the surface the boat rides and the oars break. The slope
+ * Sum of long swells: the surface the yacht rides. The slope
  * comes along for free so the sea mesh can light itself without recomputing
  * normals every frame.
  */
@@ -212,8 +195,8 @@ export function waveHeight(x: number, z: number, time: number): number {
   return sampleWave(x, z, time).height;
 }
 
-/** Hull motion over the swell, plus the roll of one oar pulling harder than the other. */
-export function boatAttitude(state: BoatState, time: number, stroke: number, trim: number): BoatAttitude {
+/** Hull motion over the swell, plus a little heel from the rudder. */
+export function boatAttitude(state: BoatState, time: number, trim: number): BoatAttitude {
   const forwardX = Math.sin(state.yaw);
   const forwardZ = Math.cos(state.yaw);
   const rightX = Math.cos(state.yaw);
@@ -226,18 +209,16 @@ export function boatAttitude(state: BoatState, time: number, stroke: number, tri
   const port = waveHeight(state.x - rightX * beam, state.z - rightZ * beam, time);
   return {
     heave: waveHeight(state.x, state.z, time) * 0.9,
-    pitch: -Math.atan2(fore - aft, length * 2) * 0.85 + stroke * SEA.strokePitch,
+    pitch: -Math.atan2(fore - aft, length * 2) * 0.85,
     roll: Math.atan2(starboard - port, beam * 2) * 0.7 - trim * SEA.trimRoll,
   };
 }
 
 /**
- * One frame of rowing. The hull is pushed along its own heading, resisted by
- * the water it is moving through, which is itself moving against the boat. A
- * boat carrying way is turned by the oar pulling harder on one side, and the
- * keel sheds sideways motion far faster than forward motion.
+ * One frame of sailing. The hull follows its heading against the current,
+ * with wave impulses upsetting its course and the keel shedding lateral drift.
  */
-export function stepBoat(state: BoatState, input: RowingInput, lightZ: number, dt: number): void {
+export function stepBoat(state: BoatState, input: SailingInput, lightZ: number, dt: number, time = 0): void {
   const distance = distanceToLight(state, lightZ);
   const current = currentSpeed(distance);
   const trim = input.trim < -1 ? -1 : input.trim > 1 ? 1 : input.trim;
@@ -263,7 +244,18 @@ export function stepBoat(state: BoatState, input: RowingInput, lightZ: number, d
   state.vx = forwardX * alongNext + rightX * acrossNext;
   state.vz = forwardZ * alongNext + rightZ * acrossNext - current;
 
-  state.yawRate += trim * input.effort * SEA.turnRate * dt;
+  // Each swell pushes the hull differently as its crest passes under the keel.
+  let wavePushX = 0;
+  let wavePushZ = 0;
+  for (const wave of SWELL) {
+    const phase = wave.x * state.x + wave.z * state.z + wave.speed * time;
+    const pressure = Math.cos(phase) * wave.amplitude;
+    wavePushX += pressure * wave.x;
+    wavePushZ += pressure * wave.z;
+  }
+  state.vx += wavePushX * 3.2 * dt;
+  state.vz += wavePushZ * 3.2 * dt;
+  state.yawRate += (trim * input.effort * SEA.turnRate + wavePushX * 0.32) * dt;
   state.yawRate *= Math.exp(-SEA.yawDamp * dt);
   state.yaw += state.yawRate * dt;
 
@@ -289,7 +281,7 @@ export interface ProgressTracker {
   history: number[];
   sampleAt: number;
   idleSince: number;
-  /** Seconds spent rowing hard without gaining ground. */
+  /** Seconds spent sailing without gaining ground. */
   wall: number;
 }
 
@@ -298,27 +290,28 @@ export function createProgressTracker(distance: number): ProgressTracker {
 }
 
 /**
- * Decides when the chapter is over: the rower has gone on pulling while the
- * light stopped coming any nearer, or the night has simply been long enough.
+ * Ends the voyage when the yacht stalls against the current or the night has
+ * lasted long enough.
  */
-export function updateProgress(tracker: ProgressTracker, distance: number, pulling: boolean, dt: number): boolean {
+export function updateProgress(tracker: ProgressTracker, distance: number, sailing: boolean, dt: number): boolean {
   tracker.time += dt;
   tracker.best = Math.min(tracker.best, distance);
   if (tracker.time - tracker.sampleAt >= SEA.progressSample) {
     tracker.sampleAt = tracker.time;
     tracker.history.push(tracker.best);
     while (tracker.history.length > Math.ceil(SEA.progressWindow / SEA.progressSample)) tracker.history.shift();
-  }   if (pulling) tracker.idleSince = tracker.time;
-   const newest = tracker.history[tracker.history.length - 1] ?? tracker.best;
-   const oldest = tracker.history[0] ?? tracker.best;
-   const span = Math.max(1, (tracker.history.length - 1) * SEA.progressSample);
-   const rate = (newest - oldest) / span;
-   const idle = tracker.time - tracker.idleSince;
-   const rowing = idle < SEA.pullingGrace;
-   const farToGo = tracker.best > SEA.lightZ * SEA.progressGate;
-   tracker.wall = rowing && !farToGo && rate < SEA.stallRate ? tracker.wall + dt : Math.max(0, tracker.wall - dt * 0.55);
-   return tracker.wall >= SEA.wallSeconds || idle >= SEA.idleLimit || tracker.time >= SEA.timeLimit;
- }
+  }
+  if (sailing) tracker.idleSince = tracker.time;
+  const newest = tracker.history[tracker.history.length - 1] ?? tracker.best;
+  const oldest = tracker.history[0] ?? tracker.best;
+  const span = Math.max(1, (tracker.history.length - 1) * SEA.progressSample);
+  const rate = (newest - oldest) / span;
+  const idle = tracker.time - tracker.idleSince;
+  const activelySailing = sailing && idle < SEA.stallGrace;
+  const farToGo = tracker.best > SEA.lightZ * SEA.progressGate;
+  tracker.wall = activelySailing && !farToGo && rate < SEA.stallRate ? tracker.wall + dt : Math.max(0, tracker.wall - dt * 0.55);
+  return tracker.wall >= SEA.wallSeconds || idle >= SEA.idleLimit || tracker.time >= SEA.timeLimit;
+}
 
 interface Swell {
   amplitude: number;
@@ -329,8 +322,8 @@ interface Swell {
 
 /** Long, low waves in metres: four swells is enough to read as open water. */
 const SWELL: Swell[] = [
-  { amplitude: 0.13, x: 0.31, z: 0.12, speed: 0.95 },
-  { amplitude: 0.09, x: -0.19, z: 0.34, speed: 0.72 },
-  { amplitude: 0.05, x: 0.55, z: 0.47, speed: 1.9 },
-  { amplitude: 0.03, x: 0.9, z: -0.6, speed: 2.7 },
+  { amplitude: 0.28, x: 0.31, z: 0.12, speed: 0.95 },
+  { amplitude: 0.2, x: -0.19, z: 0.34, speed: 0.72 },
+  { amplitude: 0.12, x: 0.55, z: 0.47, speed: 1.9 },
+  { amplitude: 0.075, x: 0.9, z: -0.6, speed: 2.7 },
 ];

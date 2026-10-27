@@ -322,10 +322,10 @@ export class NicksHouseChapter {
       this.pointerHeld = true;
       this.lastMouseX = event.clientX;
       this.lastMouseY = event.clientY;
-      void this.ctx.engine.domElement.requestPointerLock?.();
       this.updateMouseNdc();
       this.updateCrosshairTarget();
       this.beginPointerGrab();
+      if (!this.grabbedCrate) void this.ctx.engine.domElement.requestPointerLock?.();
     } else if (event.button === 2 && document.pointerLockElement === this.ctx.engine.domElement) {
       document.exitPointerLock();
     }
@@ -348,12 +348,21 @@ export class NicksHouseChapter {
     }
     this.lastMouseX = event.clientX;
     this.lastMouseY = event.clientY;
+    this.updateMouseNdc();
   };
 
   private readonly onContextMenu = (event: MouseEvent): void => event.preventDefault();
 
   private updateMouseNdc(): void {
-    this.mouseNdc.set(0, 0);
+    if (document.pointerLockElement === this.ctx.engine.domElement) {
+      this.mouseNdc.set(0, 0);
+      return;
+    }
+    const rect = this.ctx.engine.domElement.getBoundingClientRect();
+    this.mouseNdc.set(
+      ((this.lastMouseX - rect.left) / Math.max(1, rect.width)) * 2 - 1,
+      1 - ((this.lastMouseY - rect.top) / Math.max(1, rect.height)) * 2,
+    );
   }
 
   private interactionHit(): THREE.Intersection | undefined {
@@ -374,10 +383,10 @@ export class NicksHouseChapter {
       if (crate.delivered) continue;
       const toCenter = crate.proxy.position.clone().sub(this.raycaster.ray.origin);
       const distance = toCenter.dot(this.raycaster.ray.direction);
-      if (distance < 0 || distance > 5) continue;
+      if (distance < 0 || distance > 7) continue;
       const point = this.raycaster.ray.at(distance, new THREE.Vector3());
       const offset = point.distanceTo(crate.proxy.position);
-      const forgivingRadius = Math.max(0.8, crate.size * 1.2);
+      const forgivingRadius = Math.max(1.1, crate.size * 1.65);
       if (offset > forgivingRadius || (nearest && offset >= nearest.offset)) continue;
       nearest = { crate, distance, point, offset };
     }
@@ -393,14 +402,14 @@ export class NicksHouseChapter {
     const tailgate = target ? this.findTailgate(target) : null;
     const exactCrate = target ? this.crates.find((item) => !item.delivered && item.mesh.getObjectById(target.id)) : undefined;
     const crate = exactCrate ?? this.crateNearCrosshair()?.crate;
-    const crateInRange = Boolean(crate && (exactCrate ? hit!.distance <= 5 : crate.proxy.position.distanceTo(this.ctx.camera.position) <= 5));
-    crosshair.classList.toggle("is-interactive", Boolean(crateInRange || (hit && hit.distance <= 5 && (door || tailgate))));
+    const crateInRange = Boolean(crate && (exactCrate ? hit!.distance <= 7 : crate.proxy.position.distanceTo(this.ctx.camera.position) <= 7));
+    crosshair.classList.toggle("is-interactive", Boolean(crateInRange || (hit && hit.distance <= 7 && (door || tailgate))));
   }
 
   private beginPointerGrab(): void {
     if (this.grabbedCrate || this.grabbedDoor) return;
     const hit = this.interactionHit();
-    if (hit && hit.distance <= 5) {
+    if (hit && hit.distance <= 7) {
       const door = this.findCarDoor(hit.object);
       if (door) {
         this.grabbedDoor = door;
@@ -419,17 +428,17 @@ export class NicksHouseChapter {
       }
     }
 
-    const exactCrate = hit && hit.distance <= 5
+    const exactCrate = hit && hit.distance <= 7
       ? this.crates.find((item) => !item.delivered && item.mesh.getObjectById(hit.object.id))
       : undefined;
     const forgivingHit = exactCrate ? undefined : this.crateNearCrosshair();
     const crate = exactCrate ?? forgivingHit?.crate;
     const grabDistance = exactCrate ? hit!.distance : forgivingHit?.distance ?? 0;
     const grabPoint = exactCrate ? hit!.point : forgivingHit?.point;
-    if (!crate || grabDistance > 5 || (this.dragged && this.dragged !== crate)) return;
+    if (!crate || grabDistance > 7 || (this.dragged && this.dragged !== crate)) return;
     this.grabbedCrate = crate;
     this.dragged = crate;
-    this.grabDistance = THREE.MathUtils.clamp(grabDistance, 0.7, 3.4);
+    this.grabDistance = THREE.MathUtils.clamp(grabDistance, 0.7, 4.5);
     crate.body.setMotionType(PhysicsMotionType.DYNAMIC);
     crate.body.setLinearVelocity(new THREE.Vector3());
     crate.body.setAngularVelocity(new THREE.Vector3());
@@ -472,7 +481,7 @@ export class NicksHouseChapter {
       const crate = this.grabbedCrate;
       this.updateHeldObject();
       crate.body.setMotionType(PhysicsMotionType.DYNAMIC);
-      crate.body.setLinearVelocity(this.grabVelocity.clone().addScaledVector(this.walkDirection, 0.45));
+      crate.body.setLinearVelocity(new THREE.Vector3());
       crate.body.setAngularVelocity(new THREE.Vector3());
       if (this.dragged === crate) this.dragged = null;
       this.player?.setCarrying(false);
@@ -745,13 +754,15 @@ export class NicksHouseChapter {
     const mass = spec.kind === "books" ? 8 : 5 + size * 4;
     const aggregate = new PhysicsAggregate(proxy, PhysicsShapeType.BOX, {
       mass,
-      friction: 0.62,
-      restitution: 0.12,
+      friction: 0.82,
+      restitution: 0,
       extents: new THREE.Vector3(size, size, size),
       filterMembershipMask: WORLD_COLLISION_MASK,
       filterCollideMask: WORLD_COLLISION_MASK | PLAYER_COLLISION_MASK,
     }, this.requirePhysics());
     aggregate.body.setMotionType(PhysicsMotionType.DYNAMIC);
+    aggregate.body.havokBody.setLinearDamping(2.5);
+    aggregate.body.havokBody.setAngularDamping(5);
     this.physicsAggregates.push(aggregate);
     const body = aggregate.body;
     mesh.position.copy(spawn);
@@ -774,7 +785,7 @@ export class NicksHouseChapter {
       this.dragged = null;
       crate.body.setMotionType(PhysicsMotionType.DYNAMIC);
       crate.body.setTransform(crate.proxy.position, crate.proxy.quaternion);
-      crate.body.setLinearVelocity(this.walkDirection.clone().multiplyScalar(0.45));
+      crate.body.setLinearVelocity(new THREE.Vector3());
       crate.body.setAngularVelocity(new THREE.Vector3());
       this.player.setCarrying(false);
       this.ctx.say(crate.proxy.position.z >= THRESHOLD_Z ? `${crate.label} made it inside.` : `${crate.label} set down. Press E to carry it again.`, 2.2, true);
@@ -836,8 +847,8 @@ export class NicksHouseChapter {
       this.raycaster.setFromCamera(this.mouseNdc, this.ctx.camera);
       this.mouseGrabTarget.copy(this.raycaster.ray.origin).addScaledVector(this.raycaster.ray.direction, this.grabDistance);
       this.mouseGrabTarget.y = Math.max(crate.size / 2 + 0.08, this.mouseGrabTarget.y);
-      this.grabVelocity.copy(this.mouseGrabTarget).sub(crate.proxy.position).multiplyScalar(14);
-      if (this.grabVelocity.length() > 9) this.grabVelocity.setLength(9);
+      this.grabVelocity.copy(this.mouseGrabTarget).sub(crate.proxy.position).multiplyScalar(20);
+      if (this.grabVelocity.length() > 12) this.grabVelocity.setLength(12);
       crate.body.setLinearVelocity(this.grabVelocity);
       crate.body.setAngularVelocity(new THREE.Vector3());
     } else {
@@ -845,8 +856,8 @@ export class NicksHouseChapter {
       this.mouseGrabTarget.copy(player.position).addScaledVector(this.moveForward, 0.9).add(new THREE.Vector3(0, 0.72, 0));
       this.mouseGrabTarget.y = Math.max(crate.size / 2 + 0.08, this.mouseGrabTarget.y);
       if (crate.body.motionType !== PhysicsMotionType.DYNAMIC) crate.body.setMotionType(PhysicsMotionType.DYNAMIC);
-      const carryVelocity = this.mouseGrabTarget.clone().sub(crate.proxy.position).multiplyScalar(12);
-      if (carryVelocity.length() > 8) carryVelocity.setLength(8);
+      const carryVelocity = this.mouseGrabTarget.clone().sub(crate.proxy.position).multiplyScalar(18);
+      if (carryVelocity.length() > 10) carryVelocity.setLength(10);
       crate.body.setLinearVelocity(carryVelocity);
       crate.body.setAngularVelocity(new THREE.Vector3());
     }

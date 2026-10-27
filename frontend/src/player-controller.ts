@@ -182,6 +182,10 @@ export class PlayerController {
     }
     velocity.x = direction.x * speed;
     velocity.z = direction.z * speed;
+    if (direction.lengthSq() === 0) {
+      velocity.x = 0;
+      velocity.z = 0;
+    }
     if (this.position.x <= -24 && direction.x < 0 || this.position.x >= 24 && direction.x > 0) velocity.x = 0;
     if (this.position.z <= -77 && direction.z < 0 || this.position.z >= 5.2 && direction.z > 0) velocity.z = 0;
     const insideRoom = this.position.z > -4 + 0.65;

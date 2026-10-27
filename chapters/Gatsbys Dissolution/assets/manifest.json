@@ -1,0 +1,25 @@
+{
+  "id": "gatsbysDissolution",
+  "slot": "CHAPTER XVI",
+  "name": "GATSBY'S DISSOLUTION",
+  "blurb": "Aiming through a trembling sight, hold your nerve as Gatsby turns toward the pool.",
+  "command": "ONE SHOT · ONE MOMENT",
+  "how": "Move the mouse to aim through the shaking sights. Left click to fire once Gatsby looks toward the pool. The bullet follows in slow motion.",
+  "duration": 45,
+  "flavor": {
+    "win": {
+      "kicker": "CHAPTER XVI · WEST EGG",
+      "title": "THE LAST LIGHT",
+      "body": "The shot breaks the stillness beside the pool. Gatsby's bright summer ends in a scatter of water, fading light, and silence.",
+      "quote": "So we beat on, boats against the current, borne back ceaselessly into the past.",
+      "cite": "F. Scott Fitzgerald"
+    },
+    "lose": {
+      "kicker": "CHAPTER XVI · WEST EGG",
+      "title": "THE MOMENT PASSES",
+      "body": "The trembling sight never settles on its mark before the night slips away. The pool remains still beneath the green glow.",
+      "quote": "Can't repeat the past? Why of course you can!",
+      "cite": "Jay Gatsby"
+    }
+  }
+}

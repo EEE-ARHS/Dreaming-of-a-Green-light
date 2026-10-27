@@ -122,11 +122,13 @@ export function createWorld(scene: Scene, quality: number, physics: HavokPhysics
   addBox(scene, "canopy", [4.2, 0.18, 6.2], [10, 3.5, 146.8], roof);
   for (const z of [144, 149.6]) addBox(scene, "canopyPost", [0.16, 3.5, 0.16], [8.4, 1.75, z], poleMat);
 
-  const bulbMat = emissiveBasic("#ffca7c", "#ffca7c");
+  const bulbMat = emissiveBasic("#ffe0a0", "#ffe0a0");
   for (const [i, z] of [24, 74, 122, 196, 244, 292].entries()) {
     addCylinder(scene, "lampPost" + i, 0.085, 0.085, 6.4, [-8.6, 3.2, z], standard("#1c1d20"), 8);
     addBox(scene, "lampArm" + i, [2, 0.1, 0.1], [-7.7, 6.3, z], poleMat); addSphere(scene, "lampBulb" + i, 0.42, [-6.8, 6.16, z], bulbMat, 10);
-    if (i % 2 === 0) { const lamp = new PointLight("#f0b56b", 8, 22); lamp.position.set(-6.8, 6, z); scene.add(lamp); }
+    const lamp = new PointLight("#ffd089", i % 2 === 0 ? 13 : 9, 34);
+    lamp.position.set(-6.8, 6, z);
+    scene.add(lamp);
   }
   const cityMat = standard("#0b0d12", { emissive: "#080a0f" });
   for (let i = 0; i < 7; i++) { const width = 12 + Math.random() * 20, height = 20 + Math.random() * 45; addBox(scene, "cityBlock" + i, [width, height, 10], [-120 + i * 34 + Math.random() * 8, height / 2, ROAD_Z_END + 150], cityMat); }

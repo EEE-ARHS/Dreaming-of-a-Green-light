@@ -1,6 +1,7 @@
 import nicksHouseManifest from "../../../chapters/chapter02/assets/manifest.json";
 import crashDriveManifest from "../../../chapters/chapter06/assets/manifest.json";
 import boatsAgainstManifest from "../../../chapters/chapter15/assets/manifest.json";
+import gatsbysDissolutionManifest from "../../../chapters/Gatsbys Dissolution/assets/manifest.json";
 
 /** What the running chapter puts in the corner of the screen, and under it its controls. */
 export interface ChapterHud {
@@ -123,11 +124,29 @@ export const CHAPTER_CATALOG: ChapterCatalogEntry[] = [
       brand: "THE SOUND",
       sub: "CHAPTER XV · 1922",
       keys: [
-        { key: "DRAG", label: "down to pull both oars" },
-        { key: "DRAG", label: "up to recover" },
-        { key: "DRAG", label: "aside to steer" },
+        { key: "MOUSE", label: "steer left / right" },
         { key: "ESC", label: "chapters" },
         { key: "M", label: "mute" },
+      ],
+    },
+  },
+  {
+    id: gatsbysDissolutionManifest.id,
+    slot: gatsbysDissolutionManifest.slot,
+    name: gatsbysDissolutionManifest.name,
+    blurb: gatsbysDissolutionManifest.blurb,
+    command: gatsbysDissolutionManifest.command,
+    how: gatsbysDissolutionManifest.how,
+    duration: gatsbysDissolutionManifest.duration,
+    locked: false,
+    scene: "west-egg",
+    hud: {
+      brand: "THE POOL",
+      sub: "CHAPTER XVI · WEST EGG",
+      keys: [
+        { key: "MOUSE", label: "aim" },
+        { key: "LEFT CLICK", label: "fire once" },
+        { key: "ESC", label: "chapters" },
       ],
     },
   },
