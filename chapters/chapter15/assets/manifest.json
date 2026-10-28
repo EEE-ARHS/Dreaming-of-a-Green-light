@@ -1,15 +1,15 @@
 {
   "slot": "CHAPTER 15",
   "name": "BOATS AGAINST THE CURRENT",
-  "blurb": "Sail a moonlit yacht toward the green light at the end of Daisy's dock as the restless Sound pushes back.",
-  "command": "STEER FOR THE LIGHT",
-  "how": "Move the mouse left or right to steer · the wind drives the sail · sum-of-sines ocean waves buffet the yacht · ESC for chapters",
+  "blurb": "Drive Gatsby's moonlit luxury yacht across the Sound toward the green light beside Daisy's red-brick mansion.",
+  "command": "RACE FOR THE LIGHT",
+  "how": "W accelerates toward 100 mph · S brakes · A / D steer left and right · ESC for chapters",
   "flavor": {
     "win": {
       "stamp": "THE GREEN LIGHT",
       "kicker": "CHAPTER XV · THE SOUND",
       "title": "THE GREEN LIGHT",
-      "body": "The sail fills and the yacht goes on; the light grows until it is a lamp on a wooden post, and the water is shallow enough to touch. {closest} Daisy's dock has never been this near.",
+      "body": "Gatsby's yacht surges across the Sound toward the lamp on Daisy's dock, with a red-brick Georgian mansion rising behind it. {closest} The dream has never seemed this close.",
       "quote": "He stretched out his arms toward the dark water in a curious way.",
       "cite": "F. Scott Fitzgerald, The Great Gatsby"
     },

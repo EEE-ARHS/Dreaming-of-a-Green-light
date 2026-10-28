@@ -362,6 +362,7 @@ function App() {
     <div id="grain" aria-hidden="true" />
     <div id="vignette" aria-hidden="true" />
     <div id="flash" aria-hidden="true" />
+    <div id="speedStreaks" aria-hidden="true" />
     <div id="impactFlash" aria-hidden="true" />
     <div id="letterbox" aria-hidden="true"><div /><div /></div>
 
