@@ -198,7 +198,8 @@ function startPick(def: ChapterDef) {
   if (!hudReducedMotion) gsap.fromTo(hudItems, { autoAlpha: 0, y: 12 }, { autoAlpha: 1, y: 0, duration: 0.5, stagger: 0.08, ease: "power3.out" });
   gsap.to(letterbox.querySelectorAll("div"), { height: "8vh", duration: uiDuration(0.9), ease: "power3.out" });
   gsap.to(crateCounter, { autoAlpha: 0.82, duration: uiDuration(0.3) });
-  gsap.set([speedGauge, hud.querySelector(".gauge-meta")], { autoAlpha: def.scene === "west-egg" ? 0 : 1 });
+  gsap.set(speedGauge, { autoAlpha: def.scene === "west-egg" && def.id !== "boatsAgainst" ? 0 : 1 });
+  gsap.set(hud.querySelector(".gauge-meta"), { autoAlpha: def.scene === "west-egg" ? 0 : 1 });
   const previous = new Set([playingChapter, currentChapter]);
   previous.forEach((chapter) => chapter?.dispose());
   currentChapter = def.create(ctx);

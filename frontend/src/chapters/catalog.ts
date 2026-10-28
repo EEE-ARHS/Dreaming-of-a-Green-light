@@ -115,7 +115,8 @@ export const CHAPTER_CATALOG: ChapterCatalogEntry[] = [
       brand: "THE SOUND",
       sub: "CHAPTER XV · 1922",
       keys: [
-        { key: "MOUSE", label: "steer left / right" },
+        { key: "W / S", label: "accelerate / brake" },
+        { key: "A / D", label: "steer left / right" },
         { key: "ESC", label: "chapters" },
         { key: "M", label: "mute" },
       ],

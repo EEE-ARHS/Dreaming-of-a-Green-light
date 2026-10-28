@@ -17,9 +17,9 @@ export const ENGINE_CONFIG = {
       bloomThreshold: 0.5,
     },
     chapter15: {
-      bloomStrength: 0.35,
-      bloomRadius: 0.55,
-      bloomThreshold: 0.55,
+      bloomStrength: 1.25,
+      bloomRadius: 0.82,
+      bloomThreshold: 0.16,
     },
   },
   physics: {

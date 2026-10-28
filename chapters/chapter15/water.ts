@@ -47,9 +47,9 @@ export interface SeaTuning {
 }
 
 export const SEA: SeaTuning = {
-  lightZ: 130,
+  lightZ: 16046.44,
   startZ: 0,
-  minDistance: 26,
+  minDistance: 24,
   retreatNear: 52,
   retreatSpan: 26,
   retreatSpeed: 0.55,
@@ -60,11 +60,11 @@ export const SEA: SeaTuning = {
   currentWall: 1.2,
   currentWallRef: 45,
   currentFloor: 14,
-  dragLong: 0.36,
-  dragLongQuad: 0.05,
+  dragLong: 0.26,
+  dragLongQuad: 0.008,
   dragLat: 2.6,
   dragLatQuad: 0.35,
-  sailImpulse: 3.2,
+  sailImpulse: 24,
   turnRate: 1.6,
   yawDamp: 1.9,
   hullHalfLength: 1.5,
@@ -240,13 +240,27 @@ export function stepBoat(state: BoatState, input: SailingInput, lightZ: number, 
   state.x += state.vx * dt;
   state.z += state.vz * dt;
 
-  // The last gate: the boat is never permitted nearer than `minDistance`.
-  const gap = distanceToLight(state, lightZ);
+  // The last gate: project the hull outside the exclusion radius and remove
+  // any velocity aimed back toward the light, including a direct overlap.
+  const awayX = state.x;
+  const awayZ = state.z - lightZ;
+  const gap = Math.hypot(awayX, awayZ);
   if (gap < SEA.minDistance) {
-    const scale = SEA.minDistance / Math.max(gap, 0.0001);
-    state.x *= scale;
-    state.z = lightZ + (state.z - lightZ) * scale;
-    if (state.vz > 0) state.vz = 0;
+    const normalX = gap > 0.0001 ? awayX / gap : 0;
+    const normalZ = gap > 0.0001 ? awayZ / gap : -1;
+    state.x = normalX * SEA.minDistance;
+    state.z = lightZ + normalZ * SEA.minDistance;
+    const inwardSpeed = state.vx * normalX + state.vz * normalZ;
+    if (inwardSpeed < 0) {
+      state.vx -= inwardSpeed * normalX;
+      state.vz -= inwardSpeed * normalZ;
+    }
+  }
+  const speed = Math.hypot(state.vx, state.vz);
+  const maximumSpeed = 44.7; // Approximately 100 mph.
+  if (speed > maximumSpeed) {
+    state.vx *= maximumSpeed / speed;
+    state.vz *= maximumSpeed / speed;
   }
 }
 
