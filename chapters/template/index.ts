@@ -10,12 +10,10 @@ export class TemplateChapter implements Chapter {
   readonly blurb = manifest.blurb;
   readonly command = manifest.command;
   readonly how = manifest.how;
-  readonly duration = manifest.duration;
   readonly physicsScale = 1;
 
   private readonly ctx: ChapterContext;
   private outcomeState: ChapterOutcome = "pending";
-  private elapsed = 0;
   private readonly group = new THREE.Group();
   private readonly physicsAggregates: PhysicsAggregate[] = [];
   private readonly removeKeyHandler: () => void;
@@ -26,7 +24,6 @@ export class TemplateChapter implements Chapter {
   }
 
   start(): void {
-    this.elapsed = 0;
     this.outcomeState = "pending";
     this.clearPhysics();
     this.clearVisuals();
@@ -43,19 +40,13 @@ export class TemplateChapter implements Chapter {
     this.ctx.say("Chapter started.", 2, true);
   }
 
-  update(dt: number): void {
+  update(_dt: number): void {
     if (this.outcomeState !== "pending") return;
-    this.elapsed += dt;
     // Run active-game simulation and update visuals using the frame delta.
-    if (this.elapsed >= this.duration) this.expire();
   }
 
   idle(_dt: number): void {
     // Optional: gentle scene motion while the chapter is on the title menu.
-  }
-
-  expire(): void {
-    if (this.outcomeState === "pending") this.outcomeState = "lose";
   }
 
   abandon(): void {

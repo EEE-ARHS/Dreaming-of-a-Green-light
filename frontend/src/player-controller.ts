@@ -1,3 +1,5 @@
+import { PhysicsCharacterController, CharacterSupportedState } from "@babylonjs/core/Physics/v2/characterController";
+import { Vector3 as HavokVector3 } from "@babylonjs/core/Maths/math.vector";
 import { BoxGeometry, CapsuleGeometry, Group, Mesh, MeshStandardMaterial, Quaternion, Scene, SphereGeometry, Vector3 } from "three";
 import { HavokPhysics, PhysicsAggregate, PhysicsConstraint, PhysicsMotionType, PhysicsShapeType } from "./physics";
 import { PART_DEFS, Y_AXIS, type PartDef } from "./ragdoll-constants";
@@ -16,7 +18,10 @@ export class PlayerController {
   carrying = false;
   private readonly capsuleMesh: Mesh;
   private readonly capsule: PhysicsAggregate;
+  private readonly characterController: PhysicsCharacterController;
   private grounded = true;
+  private readonly controllerGravity = new HavokVector3(0, -9.81, 0);
+  private readonly supportDirection = new HavokVector3(0, -1, 0);
   private readonly avatarRoot = new Group();
   private readonly avatarMeshes: Mesh[] = [];
   private readonly avatarArmMeshes: Mesh[] = [];
@@ -46,10 +51,19 @@ export class PlayerController {
       mass: 80, friction: 0.78, restitution: 0, radius: 0.32,
       pointA: new Vector3(0, -0.4, 0), pointB: new Vector3(0, 0.4, 0),
       filterMembershipMask: 2,
-      filterCollideMask: 1,
+      filterCollideMask: 0,
     }, physics);
     this.capsule.body.setMassProperties(80, new Vector3(14, 14, 3.8));
-    this.capsule.body.setMotionType(PhysicsMotionType.DYNAMIC);
+    this.capsule.body.setMotionType(PhysicsMotionType.ANIMATED);
+    this.characterController = new PhysicsCharacterController(
+      new HavokVector3(this.position.x, this.position.y + 0.72, this.position.z),
+      { capsuleHeight: 1.44, capsuleRadius: 0.32 },
+      physics.scene,
+    );
+    this.characterController.shape.filterMembershipMask = 2;
+    this.characterController.shape.filterCollideMask = 1 | 4;
+    this.characterController.maxSlopeCosine = Math.cos(Math.PI / 3);
+    this.characterController.maxStepHeight = 0.18;
     this.createAvatar();
     this.syncCapsule();
 
@@ -167,59 +181,49 @@ export class PlayerController {
     this.grabTarget = target?.clone() ?? null;
   }
 
-  move(forwardInput: number, sideInput: number, _dt: number, jump = false): number {
+  move(forwardInput: number, sideInput: number, dt: number, jump = false): number {
     this.forward.set(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
     this.right.set(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
     const direction = this.forward.clone().multiplyScalar(forwardInput).addScaledVector(this.right, sideInput);
     if (direction.lengthSq() > 1) direction.normalize();
-    const velocity = this.capsule.body.getLinearVelocity();
+    if (dt <= 0 || this.inCutscene) return 0;
+
+    const step = Math.min(dt, 1 / 30);
+    const support = this.characterController.checkSupport(step, this.supportDirection);
+    this.grounded = support.supportedState === CharacterSupportedState.SUPPORTED;
     const speed = 4.2;
-    const nextX = this.position.x + direction.x * speed * _dt;
-    const nextZ = this.position.z + direction.z * speed * _dt;
+    const velocity = this.characterController.getVelocity().clone();
+    velocity.x = direction.x * speed;
+    velocity.z = direction.z * speed;
+
     if (jump && this.grounded) {
       velocity.y = 5.2;
       this.grounded = false;
+    } else if (this.grounded) {
+      velocity.y = Math.max(0, velocity.y);
+    } else {
+      velocity.y -= 9.81 * step;
     }
-    velocity.x = direction.x * speed;
-    velocity.z = direction.z * speed;
-    if (direction.lengthSq() === 0) {
-      velocity.x = 0;
-      velocity.z = 0;
-    }
-    if (this.position.x <= -24 && direction.x < 0 || this.position.x >= 24 && direction.x > 0) velocity.x = 0;
-    if (this.position.z <= -77 && direction.z < 0 || this.position.z >= 5.2 && direction.z > 0) velocity.z = 0;
-    const insideRoom = this.position.z > -4 + 0.65;
-    if (insideRoom && nextX < -4 + 0.45 || insideRoom && nextX > 4 - 0.45) velocity.x = 0;
-    if (Math.abs(this.position.x) > 1.15 && this.position.z >= -4 + 0.45 && nextZ < -4 + 0.45) velocity.z = 0;
-    if (Math.abs(this.position.x) > 1.15 && this.position.z <= -4 - 0.45 && nextZ > -4 - 0.45) velocity.z = 0;
-    this.capsule.body.setLinearVelocity(velocity);
-    this.capsule.body.setAngularVelocity(new Vector3());
-    if (this.position.y <= 0.06 && velocity.y < 0) {
-      this.capsuleMesh.position.y = 0.78;
-      this.position.y = 0.06;
-      velocity.y = 0;
-      this.capsule.body.setTransform(this.capsuleMesh.position, this.capsuleMesh.quaternion);
-      this.capsule.body.setLinearVelocity(velocity);
-      this.grounded = true;
-    }
+    this.characterController.setVelocity(velocity);
+    this.characterController.integrate(step, support, this.controllerGravity);
+    this.syncFromCharacterController();
+    this.syncCapsule();
     this.syncAvatar();
     this.updateArms();
     return direction.length() * speed;
   }
 
   update(_dt: number, _speed: number): void {
-    if (this.capsule.body.motionType !== PhysicsMotionType.DYNAMIC) return;
-    this.position.set(this.capsuleMesh.position.x, this.capsuleMesh.position.y - 0.72, this.capsuleMesh.position.z);
-    if (this.position.y <= 0.06 && this.capsule.body.getLinearVelocity().y <= 0.15) {
-      this.capsuleMesh.position.y = 0.78;
-      this.position.y = 0.06;
-      this.capsule.body.setTransform(this.capsuleMesh.position, this.capsuleMesh.quaternion);
-      this.grounded = true;
-    } else {
-      this.grounded = false;
-    }
+    if (this.inCutscene) return;
+    this.syncFromCharacterController();
+    this.syncCapsule();
     this.syncAvatar();
     this.updateArms();
+  }
+
+  private syncFromCharacterController(): void {
+    const position = this.characterController.getPosition();
+    this.position.set(position.x, position.y - 0.72, position.z);
   }
 
   setCutscenePosition(position: Vector3, yaw = this.yaw): void {
@@ -229,6 +233,8 @@ export class PlayerController {
     for (const arm of this.arms) arm.aggregate.body.setMotionType(PhysicsMotionType.ANIMATED);
     this.position.copy(position);
     this.yaw = yaw;
+    this.characterController.setPosition(new HavokVector3(position.x, position.y + 0.72, position.z));
+    this.characterController.setVelocity(HavokVector3.Zero());
     this.syncCapsule();
     this.updateArms();
     this.syncAvatar();
@@ -240,9 +246,10 @@ export class PlayerController {
     this.position.copy(position);
     this.yaw = yaw;
     this.grounded = true;
+    this.characterController.setPosition(new HavokVector3(position.x, position.y + 0.72, position.z));
+    this.characterController.setVelocity(HavokVector3.Zero());
     this.syncCapsule();
-    this.capsule.body.setLinearVelocity(new Vector3());
-    this.capsule.body.setMotionType(PhysicsMotionType.DYNAMIC);
+    this.capsule.body.setMotionType(PhysicsMotionType.ANIMATED);
     for (const arm of this.arms) arm.aggregate.body.setMotionType(PhysicsMotionType.DYNAMIC);
     this.updateArms();
     this.syncAvatar();
@@ -310,6 +317,7 @@ export class PlayerController {
 
   dispose(): void {
     for (const joint of this.joints) joint.dispose();
+    this.characterController.dispose();
     this.capsule.dispose();
     this.capsuleMesh.removeFromParent();
     this.capsuleMesh.geometry.dispose();

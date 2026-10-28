@@ -9,7 +9,6 @@ export class GatsbysDissolutionChapter implements Chapter {
   readonly blurb = manifest.blurb;
   readonly command = manifest.command;
   readonly how = manifest.how;
-  readonly duration: number | null = manifest.duration;
   readonly physicsScale = 1;
 
   private readonly ctx: ChapterContext;
@@ -37,7 +36,6 @@ export class GatsbysDissolutionChapter implements Chapter {
   private gun: THREE.Group | null = null;
   private phase: "aiming" | "bullet" | "impact" | "done" = "aiming";
   private result: ChapterOutcome = "pending";
-  private elapsed = 0;
   private bulletElapsed = 0;
   private impactElapsed = 0;
   private bulletHit = false;
@@ -68,7 +66,6 @@ export class GatsbysDissolutionChapter implements Chapter {
 
     this.phase = "aiming";
     this.result = "pending";
-    this.elapsed = 0;
     this.bulletElapsed = 0;
     this.impactElapsed = 0;
     this.bulletHit = false;
@@ -95,9 +92,7 @@ export class GatsbysDissolutionChapter implements Chapter {
     if (this.phase === "done") return;
     this.time += dt;
     if (this.phase === "aiming") {
-      this.elapsed += dt;
       this.updateGunShake();
-      if (this.elapsed >= this.duration!) this.finish(false);
       return;
     }
     if (this.phase === "impact") {
@@ -126,10 +121,6 @@ export class GatsbysDissolutionChapter implements Chapter {
   }
 
   idle(_dt: number): void {}
-
-  expire(): void {
-    if (this.phase === "aiming") this.finish(false);
-  }
 
   abandon(): void {
     this.phase = "done";

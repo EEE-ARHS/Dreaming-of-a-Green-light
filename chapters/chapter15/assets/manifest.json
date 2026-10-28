@@ -4,7 +4,6 @@
   "blurb": "Sail a moonlit yacht toward the green light at the end of Daisy's dock as the restless Sound pushes back.",
   "command": "STEER FOR THE LIGHT",
   "how": "Move the mouse left or right to steer · the wind drives the sail · sum-of-sines ocean waves buffet the yacht · ESC for chapters",
-  "duration": null,
   "flavor": {
     "win": {
       "stamp": "THE GREEN LIGHT",

@@ -25,8 +25,6 @@ export const ui = {
   endingBody: el<HTMLElement>("endingBody"),
   endingQuote: el<HTMLElement>("endingQuote"),
   endingCite: el<HTMLElement>("endingCite"),
-  timerFill: el<HTMLElement>("timerFill"),
-  lowTimePulse: el<HTMLElement>("lowTimePulse"),
   impactFlash: el<HTMLElement>("impactFlash"),
   crateCounter: el<HTMLElement>("crateCounter"),
 };
@@ -35,7 +33,7 @@ export const {
   hud, speedValue, gearValue, distanceValue, speedGauge, physicsMeta,
   subtitle, flash, letterbox, menuScreen, titleStatus, resultScreen,
   resultStamp, endingKicker, endingTitle, endingBody, endingQuote,
-  endingCite, timerFill, lowTimePulse, impactFlash, crateCounter,
+  endingCite, impactFlash, crateCounter,
 } = ui;
 
 export function uiDuration(seconds: number): number {

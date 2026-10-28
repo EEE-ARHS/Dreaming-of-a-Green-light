@@ -17,7 +17,6 @@ export interface ChapterCatalogEntry {
   blurb: string;
   command: string;
   how: string;
-  duration: number | null;
   locked?: boolean;
   scene?: "valley" | "west-egg";
   firstPerson?: boolean;
@@ -32,7 +31,6 @@ export const CHAPTER_CATALOG: ChapterCatalogEntry[] = [
     blurb: nicksHouseManifest.blurb,
     command: nicksHouseManifest.command,
     how: nicksHouseManifest.how,
-    duration: nicksHouseManifest.duration,
     locked: false,
     scene: "west-egg",
     firstPerson: true,
@@ -54,7 +52,6 @@ export const CHAPTER_CATALOG: ChapterCatalogEntry[] = [
     blurb: "An undecided chapter is waiting in the wings.",
     command: "...",
     how: "This Gatsby chapter is not available yet.",
-    duration: 10,
     locked: true,
   },
   {
@@ -64,7 +61,6 @@ export const CHAPTER_CATALOG: ChapterCatalogEntry[] = [
     blurb: "An undecided chapter is waiting in the wings.",
     command: "...",
     how: "This Gatsby chapter is not available yet.",
-    duration: 10,
     locked: true,
   },
   {
@@ -74,7 +70,6 @@ export const CHAPTER_CATALOG: ChapterCatalogEntry[] = [
     blurb: "An undecided chapter is waiting in the wings.",
     command: "...",
     how: "This Gatsby chapter is not available yet.",
-    duration: 10,
     locked: true,
   },
   {
@@ -84,7 +79,6 @@ export const CHAPTER_CATALOG: ChapterCatalogEntry[] = [
     blurb: "An undecided chapter is waiting in the wings.",
     command: "...",
     how: "This Gatsby chapter is not available yet.",
-    duration: 10,
     locked: true,
   },
   {
@@ -94,7 +88,6 @@ export const CHAPTER_CATALOG: ChapterCatalogEntry[] = [
     blurb: crashDriveManifest.blurb,
     command: crashDriveManifest.command,
     how: crashDriveManifest.how,
-    duration: crashDriveManifest.duration,
     locked: false,
   },
   ...Array.from({ length: 4 }, (_, index): ChapterCatalogEntry => {
@@ -106,7 +99,6 @@ export const CHAPTER_CATALOG: ChapterCatalogEntry[] = [
       blurb: "An undecided chapter is waiting in the wings.",
       command: "...",
       how: "This Gatsby chapter is not available yet.",
-      duration: 10,
       locked: true,
     };
   }),
@@ -117,7 +109,6 @@ export const CHAPTER_CATALOG: ChapterCatalogEntry[] = [
     blurb: boatsAgainstManifest.blurb,
     command: boatsAgainstManifest.command,
     how: boatsAgainstManifest.how,
-    duration: boatsAgainstManifest.duration,
     locked: false,
     scene: "west-egg",
     hud: {
@@ -137,7 +128,6 @@ export const CHAPTER_CATALOG: ChapterCatalogEntry[] = [
     blurb: gatsbysDissolutionManifest.blurb,
     command: gatsbysDissolutionManifest.command,
     how: gatsbysDissolutionManifest.how,
-    duration: gatsbysDissolutionManifest.duration,
     locked: false,
     scene: "west-egg",
     hud: {

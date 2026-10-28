@@ -6,13 +6,13 @@ import manifest from "./assets/manifest.json";
 import { createSailingYacht, type SailingYachtRig } from "./boat";
 import {
   BEATS, CAMERA_AIM, CAMERA_AIM_HEIGHT, CAMERA_BEHIND, CAMERA_FOV, CAMERA_HEIGHT, CAMERA_RATE,
-  ENDING_BEHIND, ENDING_HEIGHT, ENDING_SECONDS, WAKE_INTERVAL,
+  ENDING_BEHIND, ENDING_HEIGHT, WAKE_INTERVAL,
 } from "./constants";
 import { createGlowTexture, SplashField } from "./fx";
 import { createOcean, type Ocean } from "./ocean";
 import { createShore, type Shore } from "./shore";
 import {
-  boatAttitude, clamp01, createBoat, createProgressTracker, currentSpeed, distanceToLight, retreatLight,
+  boatAttitude, createBoat, createProgressTracker, currentSpeed, distanceToLight, retreatLight,
   sailPower, SEA, stepBoat, updateProgress, waveHeight, type BoatState, type ProgressTracker,
 } from "./water";
 
@@ -21,7 +21,6 @@ export const name = manifest.name;
 export const blurb = manifest.blurb;
 export const command = manifest.command;
 export const how = manifest.how;
-export const duration = manifest.duration as number | null;
 
 type Phase = "sailing" | "ending";
 
@@ -53,7 +52,6 @@ export class BoatsAgainstTheCurrentChapter implements Chapter {
   readonly blurb = blurb;
   readonly command = command;
   readonly how = how;
-  readonly duration: number | null = duration;
   readonly physicsScale = 1;
 
   private readonly ctx: ChapterContext;
@@ -71,7 +69,6 @@ export class BoatsAgainstTheCurrentChapter implements Chapter {
   private lightZ = SEA.lightZ;
   private phase: Phase = "sailing";
   private time = 0;
-  private endingTime = 0;
   private ended = false;
 
   private steering = 0;
@@ -105,7 +102,6 @@ export class BoatsAgainstTheCurrentChapter implements Chapter {
     this.tracker = createProgressTracker(distanceToLight(this.boat, this.lightZ));
     this.phase = "sailing";
     this.time = 0;
-    this.endingTime = 0;
     this.ended = false;
     this.steering = 0;
     this.pointerX = 0.5;
@@ -186,10 +182,6 @@ export class BoatsAgainstTheCurrentChapter implements Chapter {
     this.ctx.engine.domElement.style.cursor = "default";
   }
 
-  expire(): void {
-    if (this.phase === "sailing") this.beginEnding();
-  }
-
   outcome(): ChapterOutcome {
     return this.ended ? "lose" : "pending";
   }
@@ -259,17 +251,16 @@ export class BoatsAgainstTheCurrentChapter implements Chapter {
 
     this.spawnWake(dt);
     this.updateBeats(distance);
-    if (updateProgress(this.tracker, distance, true, dt)) this.beginEnding();
+    if (updateProgress(this.tracker, distance)) this.beginEnding();
   }
 
   private updateEnding(dt: number): void {
-    this.endingTime += dt;
     this.thrust = 0;
     this.trim += (0 - this.trim) * Math.min(1, 2 * dt);
     this.steering += (0 - this.steering) * Math.min(1, 0.8 * dt);
     stepBoat(this.boat, { thrust: 0, effort: 0, trim: this.steering }, this.lightZ, dt, this.time);
     this.lightZ = retreatLight(this.lightZ, distanceToLight(this.boat, this.lightZ), dt);
-    if (!this.ended && this.endingTime >= ENDING_SECONDS) this.ended = true;
+    if (distanceToLight(this.boat, this.lightZ) >= SEA.retreatLimit + SEA.lightZ) this.ended = true;
   }
 
   private updateBeats(distance: number): void {
@@ -283,7 +274,6 @@ export class BoatsAgainstTheCurrentChapter implements Chapter {
   private beginEnding(): void {
     if (this.phase === "ending") return;
     this.phase = "ending";
-    this.endingTime = 0;
     this.ctx.engine.domElement.style.cursor = "default";
     this.ctx.say("The sail slackens. The green light holds its distance, and the Sound carries the yacht back into the night.", 6.5, true);
   }
@@ -317,7 +307,7 @@ export class BoatsAgainstTheCurrentChapter implements Chapter {
     const forwardX = Math.sin(this.boat.yaw);
     const forwardZ = Math.cos(this.boat.yaw);
     const speed = Math.hypot(this.boat.vx, this.boat.vz);
-    const ending = this.phase === "ending" ? clamp01(this.endingTime / ENDING_SECONDS) : 0;
+    const ending = this.phase === "ending" ? 1 : 0;
     const behind = THREE.MathUtils.lerp(CAMERA_BEHIND + Math.min(speed, 2.5) * 0.35, ENDING_BEHIND, ending * ending);
     const height = THREE.MathUtils.lerp(CAMERA_HEIGHT + this.thrust * 0.03, ENDING_HEIGHT, ending * ending);
     this.cameraDesired.set(

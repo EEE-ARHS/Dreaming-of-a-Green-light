@@ -44,20 +44,6 @@ export interface SeaTuning {
   hullHalfLength: number;
   hullHalfBeam: number;
   trimRoll: number;
-  /** Progress tracking: when the chapter decides the light will not be reached. */
-  progressWindow: number;
-  progressSample: number;
-  /** Minimum forward progress before the chapter marks the yacht stalled. */
-  stallRate: number;
-  /** Grace before a persistent stall can end the sailing. */
-  stallGrace: number;
-  /** Fraction of the voyage required before stall pressure can end the chapter. */
-  progressGate: number;
-  /** The longest the yacht may make no progress before the chapter ends. */
-  wallSeconds: number;
-  /** Overall maximum sailing time. */
-  idleLimit: number;
-  timeLimit: number;
 }
 
 export const SEA: SeaTuning = {
@@ -84,14 +70,6 @@ export const SEA: SeaTuning = {
   hullHalfLength: 1.5,
   hullHalfBeam: 0.45,
   trimRoll: 0.025,
-  progressWindow: 8,
-  progressSample: 0.25,
-  stallRate: 0.35,
-  stallGrace: 2.5,
-  progressGate: 0.66,
-  wallSeconds: 4.5,
-  idleLimit: 30,
-  timeLimit: 100,
 };
 
 export interface BoatState {
@@ -273,44 +251,17 @@ export function stepBoat(state: BoatState, input: SailingInput, lightZ: number, 
 }
 
 export interface ProgressTracker {
-  /** Seconds since the chapter began. */
-  time: number;
   /** The closest the boat has ever come to the light. */
   best: number;
-  /** Sampled bests over the last few seconds, newest last. */
-  history: number[];
-  sampleAt: number;
-  idleSince: number;
-  /** Seconds spent sailing without gaining ground. */
-  wall: number;
 }
 
 export function createProgressTracker(distance: number): ProgressTracker {
-  return { time: 0, best: distance, history: [distance], sampleAt: 0, idleSince: 0, wall: 0 };
+  return { best: distance };
 }
 
-/**
- * Ends the voyage when the yacht stalls against the current or the night has
- * lasted long enough.
- */
-export function updateProgress(tracker: ProgressTracker, distance: number, sailing: boolean, dt: number): boolean {
-  tracker.time += dt;
+export function updateProgress(tracker: ProgressTracker, distance: number): boolean {
   tracker.best = Math.min(tracker.best, distance);
-  if (tracker.time - tracker.sampleAt >= SEA.progressSample) {
-    tracker.sampleAt = tracker.time;
-    tracker.history.push(tracker.best);
-    while (tracker.history.length > Math.ceil(SEA.progressWindow / SEA.progressSample)) tracker.history.shift();
-  }
-  if (sailing) tracker.idleSince = tracker.time;
-  const newest = tracker.history[tracker.history.length - 1] ?? tracker.best;
-  const oldest = tracker.history[0] ?? tracker.best;
-  const span = Math.max(1, (tracker.history.length - 1) * SEA.progressSample);
-  const rate = (newest - oldest) / span;
-  const idle = tracker.time - tracker.idleSince;
-  const activelySailing = sailing && idle < SEA.stallGrace;
-  const farToGo = tracker.best > SEA.lightZ * SEA.progressGate;
-  tracker.wall = activelySailing && !farToGo && rate < SEA.stallRate ? tracker.wall + dt : Math.max(0, tracker.wall - dt * 0.55);
-  return tracker.wall >= SEA.wallSeconds || idle >= SEA.idleLimit || tracker.time >= SEA.timeLimit;
+  return distance <= SEA.minDistance + 0.5;
 }
 
 interface Swell {

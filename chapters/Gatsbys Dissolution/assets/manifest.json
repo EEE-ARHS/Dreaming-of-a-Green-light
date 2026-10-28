@@ -5,7 +5,6 @@
   "blurb": "Aiming through a trembling sight, hold your nerve as Gatsby turns toward the pool.",
   "command": "ONE SHOT · ONE MOMENT",
   "how": "Move the mouse to aim through the shaking sights. Left click to fire once Gatsby looks toward the pool. The bullet follows in slow motion.",
-  "duration": 45,
   "flavor": {
     "win": {
       "kicker": "CHAPTER XVI · WEST EGG",
@@ -17,7 +16,7 @@
     "lose": {
       "kicker": "CHAPTER XVI · WEST EGG",
       "title": "THE MOMENT PASSES",
-      "body": "The trembling sight never settles on its mark before the night slips away. The pool remains still beneath the green glow.",
+      "body": "The shot misses Gatsby. The pool remains still beneath the green glow.",
       "quote": "Can't repeat the past? Why of course you can!",
       "cite": "Jay Gatsby"
     }

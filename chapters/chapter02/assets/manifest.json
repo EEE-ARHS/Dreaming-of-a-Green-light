@@ -4,9 +4,8 @@
   "blurb": "Nick has finally brought his things home to West Egg. Unpack the car, carry each belonging inside, and make the little house your own.",
   "command": "WELCOME HOME",
   "how": "First-person · WASD / arrow keys to walk · IJKL look · E opens the trunk and picks up or sets down belongings · ESC for chapters",
-  "duration": null,
   "models": {
-    "format": "glb or gltf; paths resolve from the frontend public root",
+    "format": "glb or gltf; keep source files in assets/3d/ and copy runtime files into the frontend public root",
     "house": { "path": null, "fit": { "targetSize": [8, 3, 8], "alignBottom": true } },
     "car": { "path": null, "fit": { "targetSize": [2.1, 1.9, 4.6], "alignBottom": true } },
     "belongings": {

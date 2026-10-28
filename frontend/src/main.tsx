@@ -377,13 +377,11 @@ function App() {
         </div>
       </header>
       <div id="subtitle" role="status" aria-live="polite" />
-      <div id="timerWrap"><div id="timerFill" /></div>
-      <div id="lowTimePulse" aria-hidden="true" />
       <div id="crateCounter" className="crate-counter" role="status" aria-live="polite" />
       <div id="crosshair" aria-hidden="true" />
       <footer>
         <div className="chapter"><span className="chapter-no">CHAPTERS</span><span className="chapter-note">Silver-screen stories · Three.js</span></div>
-        <div className="keys">{selectedChapter === "nicksHouse" ? <><span><b>WASD / ↑↓←→</b> walk</span><span><b>I J K L</b> look</span><span><b>E</b> trunk / carry / set down</span><span><b>Hold left mouse</b> drag items / open doors</span><span><b>ESC</b> chapters</span></> : hudKeys.map((entry) => <span key={`${entry.key}-${entry.label}`}><b>{entry.key}</b> {entry.label}</span>)}</div>
+        <div className="keys">{selectedChapter === "nicksHouse" ? <><span><b>WASD / ↑↓←→</b> walk</span><span><b>I J K L</b> look</span><span><b>E</b> grab / set down item under crosshair · open trunk</span><span><b>Hold left mouse</b> drag items / open doors</span><span><b>ESC</b> chapters</span></> : hudKeys.map((entry) => <span key={`${entry.key}-${entry.label}`}><b>{entry.key}</b> {entry.label}</span>)}</div>
       </footer>
     </main>
 

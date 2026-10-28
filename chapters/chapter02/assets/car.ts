@@ -36,8 +36,10 @@ export function createNickCarModel(root: THREE.Group, trunkHinge: THREE.Group): 
   box("nick-car-trunk-right", [0.13, 0.54, 1.8], [1.03, 0.83, -1.4], paint);
   box("nick-car-cockpit", [1.42, 0.52, 1.5], [0, 1, -0.55], paintDark);
   box("nick-car-cabin-floor", [1.2, 0.2, 1.2], [0, 0.86, -0.5], leather);
-  box("nick-car-seat-base", [1.16, 0.16, 0.5], [0, 0.99, -0.5], leather);
-  box("nick-car-seat-back", [1.16, 0.44, 0.14], [0, 1.18, -0.8], leather);
+  box("nick-car-driver-seat", [0.46, 0.16, 0.5], [-0.34, 0.99, -0.5], leather);
+  box("nick-car-passenger-seat", [0.46, 0.16, 0.5], [0.34, 0.99, -0.5], leather);
+  box("nick-car-driver-seat-back", [0.46, 0.44, 0.14], [-0.34, 1.18, -0.8], leather);
+  box("nick-car-passenger-seat-back", [0.46, 0.44, 0.14], [0.34, 1.18, -0.8], leather);
   box("nick-car-dash", [1.34, 0.16, 0.22], [0, 1.06, -0.16], trim);
   trunkHinge.clear();
   trunkHinge.rotation.set(0, 0, 0);

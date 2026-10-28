@@ -15,7 +15,7 @@ import {
   hud, speedValue, gearValue, distanceValue, speedGauge, physicsMeta,
   subtitle, flash, letterbox, menuScreen, titleStatus, resultScreen,
   resultStamp, endingKicker, endingTitle, endingBody, endingQuote,
-  endingCite, timerFill, lowTimePulse, impactFlash, crateCounter,
+  endingCite, impactFlash, crateCounter,
   uiDuration, showOverlay, hideOverlay, showCaption, feedCaptions
 } from "./ui";
 
@@ -64,7 +64,6 @@ let currentChapter: Chapter | null = null;
 let playingChapter: Chapter | null = null;
 let runtimeAudio: GameAudio | null = null;
 let sceneEnvironment: THREE.Object3D[] = [];
-let clockRemaining = 0;
 let lastDef: ChapterDef | null = null;
 
 async function boot(initialChapterId: string, onReady: () => void): Promise<void> {
@@ -171,9 +170,9 @@ function goMenu() {
   gsap.killTweensOf(speedTicker);
   gsap.to(hud, { autoAlpha: 0, y: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 12, duration: uiDuration(0.45), ease: "power2.inOut" }); gsap.to(letterbox.querySelectorAll("div"), { height: 0, duration: uiDuration(0.7), ease: "power2.inOut" }); gsap.to(subtitle, { autoAlpha: 0, duration: uiDuration(0.2), onComplete: () => { subtitle.textContent = ""; } });
   gsap.killTweensOf(crateCounter); gsap.to(crateCounter, { autoAlpha: 0, duration: uiDuration(0.2) });
-  gsap.killTweensOf([flash, impactFlash, lowTimePulse, timerFill]);
+  gsap.killTweensOf([flash, impactFlash]);
   gsap.to(flash, { autoAlpha: 0, duration: uiDuration(0.12) }); gsap.to(impactFlash, { autoAlpha: 0, duration: uiDuration(0.12) });
-  gsap.set([timerFill, lowTimePulse], { scaleX: 0, scale: 1, autoAlpha: 0, clearProps: "filter" }); captionQueue.length = 0; captionTimer = 0;
+  captionQueue.length = 0; captionTimer = 0;
   const previous = new Set([currentChapter, playingChapter]);
   previous.forEach((chapter) => chapter?.dispose());
   currentChapter = null;
@@ -193,22 +192,18 @@ function startPick(def: ChapterDef) {
   shell = "playing";
   captionTimer = 0; gsap.to(subtitle, { autoAlpha: 0, duration: uiDuration(0.2) });
   const hudReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const hudItems = [hud.querySelector(".brand"), hud.querySelector(".gauges"), timerFill, hud.querySelector("footer")].filter((item): item is Element => item instanceof Element);
+  const hudItems = [hud.querySelector(".brand"), hud.querySelector(".gauges"), hud.querySelector("footer")].filter((item): item is Element => item instanceof Element);
   gsap.killTweensOf([hud, ...hudItems]);
   gsap.fromTo(hud, { autoAlpha: 0, y: hudReducedMotion ? 0 : 10 }, { autoAlpha: 1, y: 0, duration: uiDuration(0.65), ease: "power2.out" });
   if (!hudReducedMotion) gsap.fromTo(hudItems, { autoAlpha: 0, y: 12 }, { autoAlpha: 1, y: 0, duration: 0.5, stagger: 0.08, ease: "power3.out" });
   gsap.to(letterbox.querySelectorAll("div"), { height: "8vh", duration: uiDuration(0.9), ease: "power3.out" });
   gsap.to(crateCounter, { autoAlpha: 0.82, duration: uiDuration(0.3) });
-  gsap.killTweensOf([timerFill, lowTimePulse]); gsap.set(timerFill, { scaleX: 1, clearProps: "filter" }); gsap.set(lowTimePulse, { autoAlpha: 0, scale: 1 });
   gsap.set([speedGauge, hud.querySelector(".gauge-meta")], { autoAlpha: def.scene === "west-egg" ? 0 : 1 });
-  gsap.set(timerFill.parentElement, { autoAlpha: def.duration === null ? 0 : 1 });
-  clockRemaining = def.duration ?? 0;
   const previous = new Set([playingChapter, currentChapter]);
   previous.forEach((chapter) => chapter?.dispose());
   currentChapter = def.create(ctx);
   playingChapter = currentChapter;
   currentChapter.start();
-  gsap.set(timerFill, { scaleX: 1 });
 }
 function playAgain() {
   if (!lastDef) return;
@@ -225,7 +220,7 @@ function endGame(outcome: ChapterOutcome) {
   if (playingChapter && playingChapter !== currentChapter) playingChapter.dispose();
   playingChapter = null;
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  if (!chapter) { gsap.to(hud, { autoAlpha: 0, y: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 12, duration: uiDuration(0.4) }); gsap.to(letterbox.querySelectorAll("div"), { height: 0, duration: uiDuration(0.7), ease: "power2.inOut" }); gsap.set(timerFill, { scaleX: 0 }); shell = "result"; showOverlay(resultScreen); return; }
+  if (!chapter) { gsap.to(hud, { autoAlpha: 0, y: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 12, duration: uiDuration(0.4) }); gsap.to(letterbox.querySelectorAll("div"), { height: 0, duration: uiDuration(0.7), ease: "power2.inOut" }); shell = "result"; showOverlay(resultScreen); return; }
   const flavor = chapter.flavor(outcome === "win" ? "win" : "lose");
   endingKicker.textContent = flavor.kicker; endingTitle.textContent = flavor.title; endingBody.innerHTML = flavor.body;
   endingQuote.textContent = flavor.quote; endingCite.textContent = flavor.cite;
@@ -233,8 +228,7 @@ function endGame(outcome: ChapterOutcome) {
   gsap.fromTo(resultStamp, { scale: reducedMotion ? 1 : 0.6, autoAlpha: reducedMotion ? 1 : 0, rotation: reducedMotion ? 0 : -3 }, { scale: 1, autoAlpha: 1, rotation: 0, textShadow: outcome === "win" ? "0 0 30px rgba(255,238,214,.4)" : "0 0 30px rgba(255,107,97,.4)", duration: uiDuration(0.75), ease: reducedMotion ? "none" : "back.out(1.6)" });
   const resultContent = resultScreen.querySelectorAll<HTMLElement>(".deco > *");
   if (!reducedMotion) gsap.fromTo(resultContent, { autoAlpha: 0, y: 18, filter: "blur(5px)" }, { autoAlpha: 1, y: 0, filter: "blur(0px)", duration: 0.65, stagger: 0.055, ease: "power3.out" });
-  gsap.killTweensOf([timerFill, lowTimePulse]); gsap.set(lowTimePulse, { autoAlpha: 0, scale: 1 });
-  gsap.to(hud, { autoAlpha: 0, y: reducedMotion ? 0 : 12, duration: uiDuration(0.45), ease: "power2.inOut" }); gsap.to(letterbox.querySelectorAll("div"), { height: 0, duration: uiDuration(0.7), ease: "power2.inOut" }); gsap.set(timerFill, { scaleX: 0 });
+  gsap.to(hud, { autoAlpha: 0, y: reducedMotion ? 0 : 12, duration: uiDuration(0.45), ease: "power2.inOut" }); gsap.to(letterbox.querySelectorAll("div"), { height: 0, duration: uiDuration(0.7), ease: "power2.inOut" });
   showOverlay(resultScreen, 0.9); shell = "result";
 }
 function updateHudTelemetry(dt: number): void {
@@ -309,22 +303,6 @@ function render(now: number, delta: number) {
   if (shell === "menu") {
     currentChapter?.idle(realDt);
   } else if (shell === "playing") {
-    if (lastDef?.duration !== null && lastDef?.duration !== undefined) {
-      clockRemaining -= realDt;
-      if (clockRemaining <= 0) {
-        clockRemaining = 0;
-        playingChapter?.expire?.();
-        if (playingChapter?.outcome() === "lose") endGame("lose");
-      }
-      const timeRatio = Math.max(0, clockRemaining / lastDef.duration);
-      gsap.set(timerFill, { scaleX: timeRatio });
-      if (timeRatio <= 0.2 && !gsap.isTweening(lowTimePulse)) {
-        gsap.to(lowTimePulse, { autoAlpha: 0.72, scale: 1.04, duration: uiDuration(0.48), yoyo: true, repeat: -1, ease: "sine.inOut" });
-        gsap.to(timerFill, { filter: "brightness(1.8)", duration: uiDuration(0.4), yoyo: true, repeat: -1, ease: "sine.inOut" });
-      }
-    } else {
-      gsap.set([timerFill, lowTimePulse], { autoAlpha: 0 });
-    }
     const dt = Math.min(realDt, 1 / 30);
     const physicsScale = playingChapter?.physicsScale ?? 1;
     if (physics) physics.setTimeStep(dt * physicsScale);

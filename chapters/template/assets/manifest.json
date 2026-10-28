@@ -5,7 +5,6 @@
   "blurb": "A short description of the chapter premise.",
   "command": "YOUR OBJECTIVE",
   "how": "Explain the player controls and how to complete the chapter.",
-  "duration": 30,
   "flavor": {
     "win": {
       "kicker": "CHAPTER 00 · LOCATION",
@@ -17,7 +16,7 @@
     "lose": {
       "kicker": "CHAPTER 00 · LOCATION",
       "title": "CHAPTER ENDED",
-      "body": "Describe the result when time runs out or the player fails.",
+      "body": "Describe the result when the player fails.",
       "quote": "Add a fitting quotation or leave this blank.",
       "cite": "Attribution"
     }

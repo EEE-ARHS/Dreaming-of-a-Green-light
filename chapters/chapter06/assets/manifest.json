@@ -4,7 +4,6 @@
   "blurb": "The road from New York runs black through the Valley. Steer Gatsby's yellow car through the crossing.",
   "command": "KEEP YOUR EYES ON THE ROAD",
   "how": "W / ↑ accelerate · S / ↓ brake · A / ← steer left · D / → steer right · SPACE skid",
-  "duration": 16,
   "flavor": {
     "win": {
       "kicker": "CHAPTER VII · THE VALLEY OF ASHES",

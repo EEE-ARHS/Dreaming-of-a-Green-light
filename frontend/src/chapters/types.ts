@@ -49,12 +49,10 @@ export interface Chapter {
   readonly blurb: string;
   readonly command: string;
   readonly how: string;
-  readonly duration: number | null;
   start(): void;
   update(dt: number): void;
   idle(dt: number): void;
   abandon?(): void;
-  expire?(): void;
   readonly physicsScale: number;
   outcome(): ChapterOutcome;
   flavor(outcome: "win" | "lose"): ChapterFlavor;

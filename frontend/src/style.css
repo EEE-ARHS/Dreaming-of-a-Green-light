@@ -29,7 +29,6 @@ body { user-select: none; }
 #grain { z-index: 5; opacity: .04; mix-blend-mode: screen; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E"); }
 #flash { z-index: 6; background: radial-gradient(circle at 50% 55%,rgba(255,238,214,.55),transparent 62%); opacity: 0; }
 #impactFlash { position: fixed; z-index: 7; inset: 8%; border: 1px solid rgba(242,223,167,.42); border-radius: 50%; box-shadow: inset 0 0 80px rgba(242,223,167,.12), 0 0 60px rgba(242,223,167,.12); opacity: 0; pointer-events: none; }
-#lowTimePulse { position: fixed; z-index: 7; inset: 0; border: 1px solid rgba(255,78,62,.2); box-shadow: inset 0 0 110px rgba(255,48,32,.16); opacity: 0; pointer-events: none; }
 #letterbox { position: fixed; inset: 0; pointer-events: none; z-index: 7; }
 #letterbox div { position: absolute; left: 0; right: 0; height: 0; background: #000; }
 #letterbox div:first-child { top: 0; } #letterbox div:last-child { bottom: 0; }
@@ -40,9 +39,7 @@ body { user-select: none; }
 .brand-title { font-family: var(--serif); font-weight: 600; font-size: clamp(13px,1.25vw,17px); letter-spacing: .28em; color: var(--gold-light); }
 .brand-sub { font-family: var(--sans); font-size: 8px; letter-spacing: .28em; color: rgba(242,231,207,.52); }
   .gauges { display: flex; align-items: center; gap: 16px; background: transparent; border: none; border-radius: 0; padding: 0; backdrop-filter: none; box-shadow: none; }
-#timerWrap { display: flex; justify-content: center; width: min(360px,46vw); padding: 10px 0 4px; pointer-events: none; }
 .crate-counter { position: fixed; top: 76px; left: 50%; transform: translateX(-50%); font: 9px var(--sans); letter-spacing: .24em; text-transform: uppercase; color: var(--gold-light); opacity: 0; pointer-events: none; }
-#timerFill { height: 2px; width: 100%; transform: scaleX(0); transform-origin: left center; background: linear-gradient(90deg,#a78642,var(--gold-light) 50%,#e49d61); border-radius: 0; box-shadow: 0 0 22px rgba(215,185,112,.42); }
 .speedo { display: flex; align-items: baseline; gap: 6px; min-width: 90px; }
 #speedValue { font-family: var(--serif); font-variant-numeric: tabular-nums; font-size: clamp(24px,2.4vw,34px); line-height: 1; color: var(--cream); }
 .unit { font-family: var(--sans); font-size: 9px; letter-spacing: .2em; color: var(--gold); }

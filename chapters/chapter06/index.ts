@@ -14,7 +14,6 @@ export const name = manifest.name;
 export const blurb = manifest.blurb;
 export const command = manifest.command;
 export const how = manifest.how;
-export const duration = manifest.duration;
 
 export class CrashDriveChapter {
   readonly id = id;
@@ -22,14 +21,12 @@ export class CrashDriveChapter {
   readonly blurb = blurb;
   readonly command = command;
   readonly how = how;
-  readonly duration = duration;
   private timeScaleHint = 1;
   get physicsScale(): number { return this.timeScaleHint; }
   private readonly ctx: ChapterContext;
   private phase: RoundPhase = "driving";
 
   private won = false;
-  private expired = false;
   private shake = 0;
   private captionQueue: { text: string; hold: number }[] = [];
   private captionTimer = 0;
@@ -72,7 +69,7 @@ export class CrashDriveChapter {
     this.time = 0;
     this.introElapsed = 0;
     this.disposeImpactParticles();
-    car.reset(); myrtle.reset(); this.phase = "driving"; this.won = false; this.expired = false;
+    car.reset(); myrtle.reset(); this.phase = "driving"; this.won = false;
     this.timeScaleHint = 1; this.shake = 0; this.captionQueue.length = 0; this.captionTimer = 0;
     this.impactElapsed = 0; this.impactMph = 0; this.crossingStarted = false; this.waveAnnounced = false;
     this.hit = false; this.missed = false; this.aftermath = false; this.distortion = 0; this.distortionTarget = 0; this.distortionEnvelope = 0;
@@ -91,18 +88,14 @@ export class CrashDriveChapter {
 
   outcome(): ChapterOutcome {
     if (this.phase === "impact") return "pending";
-    if (this.expired || this.missed) return "lose";
+    if (this.missed) return "lose";
     return this.hit && this.won && this.phase === "complete" ? "win" : "pending";
   }
-  expire(): void {
-    if (this.expired || this.phase === "complete") return;
-    this.expired = true; this.phase = "complete"; this.say("The hour grew late. The crossing went unwatched.", 4, true);
-  }
-  abandon(): void { this.phase = "complete"; this.expired = true; }
+  abandon(): void { this.phase = "complete"; }
 
   flavor(outcome: "win" | "lose"): { kicker: string; title: string; body: string; quote: string; cite: string } {
     const { car } = this.requireValley();
-    const speedLine = this.hit ? `You struck at <b>${this.impactMph} mph</b>.` : `The clock ran out at <b>${Math.round(toMph(car.speed))} mph</b>.`;
+    const speedLine = this.hit ? `You struck at <b>${this.impactMph} mph</b>.` : `You reached the crossing at <b>${Math.round(toMph(car.speed))} mph</b>.`;
     const flavorText = manifest.flavor[outcome];
     return {
       kicker: flavorText.kicker,
