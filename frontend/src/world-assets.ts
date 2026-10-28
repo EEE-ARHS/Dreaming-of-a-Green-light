@@ -1,6 +1,6 @@
 import {
   BoxGeometry, BufferGeometry, CanvasTexture, Color, CylinderGeometry, Mesh, MeshBasicMaterial,
-  MeshStandardMaterial, SphereGeometry, Vector3, type Object3D,
+  MeshStandardMaterial, NearestFilter, SphereGeometry, Vector3, type Object3D,
 } from "three";
 
 export function worldColor(hex: string): Color { return new Color(hex); }
@@ -13,7 +13,7 @@ export function emissiveBasicMaterial(hex: string, emissive: string, extra: Part
   return material;
 }
 export function standardMaterial(hex: string, extra: Partial<ConstructorParameters<typeof MeshStandardMaterial>[0]> = {}) {
-  return new MeshStandardMaterial({ color: hex, roughness: 0.86, ...extra });
+  return new MeshStandardMaterial({ color: hex, roughness: 0.9, flatShading: true, ...extra });
 }
 
 export function makeWorldCanvasTexture(width: number, height: number, paint: (ctx: CanvasRenderingContext2D) => void): CanvasTexture {
@@ -24,6 +24,8 @@ export function makeWorldCanvasTexture(width: number, height: number, paint: (ct
   paint(ctx);
   const texture = new CanvasTexture(canvas);
   texture.colorSpace = "srgb";
+  texture.magFilter = NearestFilter;
+  texture.minFilter = NearestFilter;
   return texture;
 }
 
@@ -40,7 +42,7 @@ export function fleckTexture(base: string, flecks: number, size = 512): CanvasTe
 }
 
 export function textTexture(text: string, width: number, height: number, font: string, fill: string): CanvasTexture {
-  return makeWorldCanvasTexture(1024, Math.round(1024 * height / width), (ctx) => {
+  return makeWorldCanvasTexture(512, Math.round(512 * height / width), (ctx) => {
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     ctx.fillStyle = fill; ctx.font = font; ctx.textAlign = "center"; ctx.textBaseline = "middle";
     ctx.fillText(text, ctx.canvas.width / 2, ctx.canvas.height / 2);
@@ -59,12 +61,12 @@ export function addWorldBox(parent: Object3D, name: string, size: [number, numbe
   return result;
 }
 export function addWorldCylinder(parent: Object3D, name: string, top: number, bottom: number, height: number, position: [number, number, number], material: MeshStandardMaterial | MeshBasicMaterial, segments = 16): Mesh {
-  const result = addWorldMesh(new CylinderGeometry(top, bottom, height, segments), material, new Vector3(...position), parent);
+  const result = addWorldMesh(new CylinderGeometry(top, bottom, height, Math.min(8, segments)), material, new Vector3(...position), parent);
   result.name = name;
   return result;
 }
 export function addWorldSphere(parent: Object3D, name: string, diameter: number, position: [number, number, number], material: MeshStandardMaterial | MeshBasicMaterial, segments = 18): Mesh {
-  const result = addWorldMesh(new SphereGeometry(diameter / 2, segments, Math.max(8, Math.floor(segments * 0.65))), material, new Vector3(...position), parent);
+  const result = addWorldMesh(new SphereGeometry(diameter / 2, Math.min(10, segments), Math.min(6, Math.max(4, Math.floor(segments * 0.4)))), material, new Vector3(...position), parent);
   result.name = name;
   return result;
 }

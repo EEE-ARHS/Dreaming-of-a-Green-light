@@ -204,6 +204,19 @@ function startPick(def: ChapterDef) {
   currentChapter = def.create(ctx);
   playingChapter = currentChapter;
   currentChapter.start();
+  for (const chapterObject of scene.children) {
+    chapterObject.traverse((object) => {
+      const materialOrMaterials = (object as THREE.Mesh).material;
+      if (!materialOrMaterials) return;
+      const materials = Array.isArray(materialOrMaterials) ? materialOrMaterials : [materialOrMaterials];
+      for (const material of materials) {
+        if (material instanceof THREE.MeshStandardMaterial) {
+          material.flatShading = true;
+          material.needsUpdate = true;
+        }
+      }
+    });
+  }
 }
 function playAgain() {
   if (!lastDef) return;

@@ -11,7 +11,7 @@ export function createNickCarModel(root: THREE.Group, trunkHinge: THREE.Group): 
   const headlamp = new THREE.MeshBasicMaterial({ color: "#fff3d0" });
   const tailLamp = new THREE.MeshBasicMaterial({ color: "#a8130c" });
   const cylinder = (name: string, radius: number, length: number, position: [number, number, number], material: THREE.Material, segments = 16) => {
-    const mesh = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, length, segments), material);
+    const mesh = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, length, Math.min(segments, 8)), material);
     mesh.name = name;
     mesh.position.set(...position);
     mesh.castShadow = mesh.receiveShadow = true;
@@ -31,9 +31,9 @@ export function createNickCarModel(root: THREE.Group, trunkHinge: THREE.Group): 
   box("nick-car-hood", [1.02, 0.4, 1.7], [0, 0.92, 1.18], paint);
   box("nick-car-hood-top", [0.86, 0.1, 1.62], [0, 1.13, 1.2], paintDark);
   box("nick-car-cowl", [1.5, 0.34, 0.3], [0, 0.97, 0.42], paintDark);
-  box("nick-car-trunk-floor", [2.05, 0.12, 1.8], [0, 0.59, -1.4], paint);
-  box("nick-car-trunk-left", [0.13, 0.54, 1.8], [-1.03, 0.83, -1.4], paint);
-  box("nick-car-trunk-right", [0.13, 0.54, 1.8], [1.03, 0.83, -1.4], paint);
+  box("nick-car-trunk-floor", [2.05, 0.12, 2.25], [0, 0.59, -1.625], paint);
+  box("nick-car-trunk-left", [0.13, 0.54, 2.25], [-1.03, 0.83, -1.625], paint);
+  box("nick-car-trunk-right", [0.13, 0.54, 2.25], [1.03, 0.83, -1.625], paint);
   box("nick-car-cockpit", [1.42, 0.52, 1.5], [0, 1, -0.55], paintDark);
   box("nick-car-cabin-floor", [1.2, 0.2, 1.2], [0, 0.86, -0.5], leather);
   box("nick-car-driver-seat", [0.46, 0.16, 0.5], [-0.34, 0.99, -0.5], leather);

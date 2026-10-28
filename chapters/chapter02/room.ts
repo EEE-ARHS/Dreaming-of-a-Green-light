@@ -137,6 +137,26 @@ export function buildRoom(addStaticCollider: AddStaticCollider): THREE.Group {
     box(0.6, 0.5, 0.05, frameMaterial, 2.9, 1.85, -ROOM_HALF + 0.1);
     box(0.48, 0.38, 0.03, canvasMaterial, 2.9, 1.85, -ROOM_HALF + 0.14);
 
+    // A narrow bookcase and writing desk give the parlor a sense of a life just begun.
+    const bookcaseWood = new THREE.MeshStandardMaterial({ color: "#39271b", roughness: 0.68 });
+    const bookSpines = ["#6b392d", "#344b46", "#9a7448", "#4c3d63", "#a54e36"]
+      .map((color) => new THREE.MeshStandardMaterial({ color, roughness: 0.86 }));
+    solid(0.52, 2.2, 1.85, bookcaseWood, -3.58, 1.14, 0.35);
+    for (const shelfY of [0.46, 0.96, 1.46, 1.96]) {
+      solid(0.58, 0.07, 1.92, woodMaterial, -3.55, shelfY, 0.35);
+      for (let book = 0; book < 5; book++) {
+        const spine = bookSpines[(book + Math.round(shelfY * 2)) % bookSpines.length]!;
+        const height = 0.29 + (book % 3) * 0.045;
+        box(0.2, height, 0.11, spine, -3.47, shelfY + 0.07 + height / 2, -0.34 + book * 0.34);
+      }
+    }
+    solid(1.25, 0.09, 0.65, woodMaterial, 0.15, 0.78, 1.95);
+    for (const [dx, dz] of [[-0.52, -0.24], [0.52, -0.24], [-0.52, 0.24], [0.52, 0.24]] as const) {
+      solid(0.07, 0.72, 0.07, woodMaterial, 0.15 + dx, 0.37, 1.95 + dz);
+    }
+    box(0.72, 0.035, 0.48, new THREE.MeshStandardMaterial({ color: "#eee3c8", roughness: 0.95 }), 0.1, 0.85, 1.95);
+    box(0.34, 0.035, 0.25, new THREE.MeshStandardMaterial({ color: "#b7a27a", roughness: 0.84 }), 0.15, 0.89, 1.95);
+
     // Warm tungsten light in the parlor plus a dim lamp over the porch.
     const lampLight = new THREE.PointLight("#ffc98a", 16, 16, 2);
     lampLight.position.set(lampX - 0.2, 1.7, lampZ);
@@ -147,6 +167,9 @@ export function buildRoom(addStaticCollider: AddStaticCollider): THREE.Group {
     const fillLight = new THREE.PointLight("#9fb0c4", 3.2, 14, 2);
     fillLight.position.set(0, 2.4, 5.6);
     room.add(fillLight);
+    const deskLight = new THREE.PointLight("#ffcf8a", 4.5, 7, 2);
+    deskLight.position.set(0.15, 1.2, 1.95);
+    room.add(deskLight);
 
   return room;
 }

@@ -11,7 +11,7 @@ export const ENGINE_CONFIG = {
     antialias: false,
     powerPreference: "high-performance",
     carGamePostProcessing: {
-      pixelSize: 3,
+      pixelSize: 4,
       bloomStrength: 0.9,
       bloomRadius: 0.62,
       bloomThreshold: 0.5,
