@@ -7,6 +7,9 @@ import { crateCounter } from "../../frontend/src/ui";
 import manifest from "./assets/manifest.json";
 import { disposeObjectTree } from "./assets/model-loader";
 import { buildExterior } from "./exterior";
+import { buildRoom, buildDaisyVase } from "./room";
+import { ROOM_HALF } from "./constants";
+import { FLOWER_SPOTS } from "./constants";
 
 const FIELD_SIZE = 8;
 const FIELD_CELLS = 16;
@@ -15,11 +18,6 @@ const FIELD_MIN_Z = 6.5;
 const CELL_SIZE = FIELD_SIZE / FIELD_CELLS;
 const MOWING_BOUNDS = { minX: FIELD_MIN_X, maxX: FIELD_MIN_X + FIELD_SIZE, minZ: FIELD_MIN_Z - 1.5, maxZ: FIELD_MIN_Z + FIELD_SIZE + 0.5 };
 const WALKING_BOUNDS = { minX: -6.1, maxX: 6.1, minZ: 4.8, maxZ: 17.2 };
-const FLOWER_SPOTS: [number, number][] = [
-  [-5.3, 6], [5.3, 6],
-  [-5.3, 10.5], [5.3, 10.5],
-  [-5.3, 15], [5.3, 15],
-];
 const TOP_CAMERA = new THREE.Vector3(8, 82, -26);
 const TOP_LOOK = new THREE.Vector3(8, 0, -26);
 const CONVERSATION_CAMERA = new THREE.Vector3(0, 5.8, -4.8);
@@ -64,6 +62,9 @@ export class NicksHouseChapter {
   private player: PlayerController | null = null;
   private exterior: THREE.Group | null = null;
   private gameRoot: THREE.Group | null = null;
+  private roomRoot: THREE.Group | null = null;
+  private roomGroup: THREE.Group | null = null;
+  private vaseGroup: THREE.Group | null = null;
   private gatsby: THREE.Group | null = null;
   private mower: THREE.Group | null = null;
   private fieldTiles: THREE.Mesh[] = [];
@@ -73,6 +74,7 @@ export class NicksHouseChapter {
   private spots: FlowerSpot[] = [];
   private heldFlower: THREE.Group | null = null;
   private flowerCount = 0;
+  private vaseRaycastTargets: THREE.Object3D[] = [];
   private playerYaw = 0;
   private playerPitch = 0;
   private playerSpeed = 0;
@@ -109,6 +111,10 @@ export class NicksHouseChapter {
     this.flowers = [];
     this.spots = [];
     this.heldFlower = null;
+    this.vaseRaycastTargets = [];
+    for (const child of this.vaseGroup?.children ?? []) {
+      if (child instanceof THREE.Group) this.vaseRaycastTargets.push(child);
+    }
     if (document.pointerLockElement === this.ctx.engine.domElement) document.exitPointerLock();
 
     this.exterior = buildExterior((object, width, height, depth) => this.addStaticCollider(object, width, height, depth));
@@ -121,6 +127,33 @@ export class NicksHouseChapter {
     this.gatsby = this.createGatsby();
     this.gatsby.rotation.y = Math.PI;
     this.ctx.scene.add(this.gatsby);
+    this.roomRoot = new THREE.Group();
+    this.roomRoot.name = "nicks-house-interior";
+    this.ctx.scene.add(this.roomRoot);
+    const roomBuilder = (object: THREE.Object3D, width: number, height: number, depth: number) => this.addStaticCollider(object, width, height, depth);
+    this.roomGroup = buildRoom(roomBuilder);
+    this.roomGroup.position.set(0, 0.12, -3.2);
+    this.ctx.scene.add(this.roomGroup);
+    this.vaseGroup = new THREE.Group();
+    this.vaseGroup.name = "indoor-daisy-vases";
+    this.roomGroup.add(this.vaseGroup);
+    const vaseFurnitureAnchors: { vaseIndex: number; parentName: string; position: [number, number, number]; scale?: number }[] = [
+      { vaseIndex: 0, parentName: "desk", position: [0.15, 0.85, 1.95], scale: 1 },
+      { vaseIndex: 1, parentName: "bookshelf", position: [-3.58, 1.14, 0.35], scale: 0.85 },
+      { vaseIndex: 2, parentName: "chair", position: [2.2, 0.76, -3.24], scale: 1 },
+      { vaseIndex: 3, parentName: "table", position: [-2.4, 0.78, -2.9], scale: 1 },
+      { vaseIndex: 4, parentName: "lamp", position: [3.05, 0.78, -0.2], scale: 0.9 },
+      { vaseIndex: 5, parentName: "mirror", position: [2.9, 1.85, -ROOM_HALF + 0.1], scale: 0.8 },
+    ];
+    for (const anchor of vaseFurnitureAnchors) {
+      const parentMesh = this.roomGroup?.getObjectByName(anchor.parentName) as THREE.Mesh | null;
+      const vase = buildDaisyVase(anchor.vaseIndex, anchor.scale ?? 1);
+      if (parentMesh && this.vaseGroup) {
+        parentMesh.add(vase);
+        vase.position.set(...anchor.position);
+        vase.scale.setScalar(1);
+      }
+    }
     this.buildGameObjects();
     this.buildMower();
 
@@ -203,13 +236,16 @@ export class NicksHouseChapter {
     }
     for (const aggregate of this.physicsAggregates) aggregate.dispose();
     this.physicsAggregates.length = 0;
-    for (const object of [this.gatsby, this.gameRoot, this.exterior]) {
+    for (const object of [this.gatsby, this.gameRoot, this.roomGroup, this.vaseGroup, this.exterior]) {
       if (!object) continue;
       this.ctx.scene.remove(object);
       disposeObjectTree(object);
     }
     this.gatsby = null;
     this.gameRoot = null;
+    this.roomGroup = null;
+    this.roomRoot = null;
+    this.vaseGroup = null;
     this.exterior = null;
     this.fieldTiles = [];
     this.flowers = [];
@@ -239,19 +275,19 @@ export class NicksHouseChapter {
     camera.position.copy(TOP_CAMERA).lerp(CONVERSATION_CAMERA, zoom);
     this.playerPosition.copy(TOP_LOOK).lerp(CONVERSATION_LOOK, zoom);
     camera.lookAt(this.playerPosition);
-    if (this.gatsby && zoom > 0.96) this.gatsby.rotation.y = THREE.MathUtils.lerp(Math.PI, 0.25, THREE.MathUtils.smoothstep(zoom, 0.96, 1));
+    if (this.gatsby && zoom > 0.88) this.gatsby.rotation.y = THREE.MathUtils.lerp(Math.PI, 0.22, THREE.MathUtils.smoothstep(zoom, 0.88, 1));
     camera.fov = THREE.MathUtils.lerp(58, 48, zoom);
     camera.updateProjectionMatrix();
-    captionAt(3.4, "Nick, Daisy may come by tomorrow. I need your house looking its best.", 4.1);
-    captionAt(7.6, "Mow the whole backyard, then fill the vases with daisies. She loves them.", 4.2);
-    captionAt(11.4, "I'll pay you under the table—cash, no questions. Do this for me, old sport.", 4.1);
+    captionAt(3.3, "Nick, Daisy may come by tomorrow. I need your house looking its best.", 4.1);
+    captionAt(7.4, "Mow the whole backyard, then fill the vases with daisies. She loves them.", 4.2);
+    captionAt(11.2, "I'll pay you under the table—cash, no questions. Do this for me, old sport.", 4.1);
     if (this.elapsed >= INTRO_SECONDS) {
       this.phase = "mowing";
       if (this.mower) this.mower.visible = true;
       this.playerYaw = 0;
       this.playerPitch = 0;
       this.player?.resumeWalking(new THREE.Vector3(0, 0.06, 10.5), 0);
-      this.player?.setAvatarVisible(false);
+      this.player?.setAvatarVisible(true);
       camera.fov = 68;
       camera.updateProjectionMatrix();
       this.updatePlayerCamera();
@@ -535,12 +571,11 @@ export class NicksHouseChapter {
     if (this.mowedCount >= this.mowed.length) {
       this.phase = "flowers";
       if (this.mower) this.mower.visible = false;
-      this.ctx.say("Every row is cut. Now make Nick's house ready for Daisy—aim at a daisy and click to pick it up, then aim at an outlined vase and click to place it.", 5.5, true);
-      this.updatePlayerCamera();
-      this.updateFlowerCrosshair();
-      this.updateProgressHud();
+      this.ctx.say("Every row is cut. Now make Nick's house ready for Daisy—aim at a daisy and click to pick it up, then aim at an outlined vase and click to place it.", 5.5, true);        this.updatePlayerCamera();
+        this.updateFlowerCrosshair();
+        this.updateProgressHud();
+      }
     }
-  }
 
   private updateProgressHud(): void {
     if (!this.counter) {
@@ -567,7 +602,7 @@ export class NicksHouseChapter {
     if (this.progressLabel) {
       this.progressLabel.textContent = this.phase === "mowing"
         ? `MOW THE LAWN · ${percent}%`
-        : this.phase === "flowers" ? `DAISIES · ${this.flowerCount}/${FLOWER_SPOTS.length}` : "THE GARDEN";
+        : this.phase === "flowers" ? `DIASIES · ${this.flowerCount}/${FLOWER_SPOTS.length}` : "THE GARDEN";
     }
     if (this.progressFill) this.progressFill.style.width = `${percent}%`;
   }
@@ -807,29 +842,31 @@ export class NicksHouseChapter {
       leg.rotation.x = -0.04;
     }
     return gatsby;
-  }
-
-  private readonly onMouseDown = (event: MouseEvent): void => {
+  }  private readonly onMouseDown = (event: MouseEvent): void => {
     if (event.button !== 0 || (this.phase !== "mowing" && this.phase !== "flowers")) return;
     event.preventDefault();
     if (this.phase === "flowers") {
       const target = this.raycastFlowerTarget();
-      if (target?.spot && this.heldFlower) {
+      if (target?.vase && this.heldFlower) {
         const flower = this.heldFlower;
+        const vaseIndex = target.vase.userData.daisyVaseSpot;
+        if (vaseIndex === null) return;
+        const vase = this.vaseGroup?.getObjectByName(`indoor-daisy-vase-${vaseIndex + 1}`) as THREE.Group | null;
+        if (!vase || vase.getObjectByName(`daisy-placement-outline-${vaseIndex + 1}`)!.visible) return;
         this.ctx.camera.updateMatrixWorld(true);
         flower.updateMatrixWorld(true);
         this.ctx.scene.attach(flower);
         flower.position.set(0, 0.18, 0);
         flower.scale.setScalar(1);
-        target.spot.root.add(flower);
-        target.spot.flower = flower;
-        target.spot.outline.visible = false;
+        vase.add(flower);
+        vase.userData.daisyPlaced = true;
+        vase.getObjectByName(`daisy-placement-outline-${vaseIndex + 1}`)!.visible = false;
         this.heldFlower = null;
         this.flowerCount++;
         if (this.flowerCount === FLOWER_SPOTS.length) {
           this.phase = "complete";
           this.endingElapsed = 0;
-          this.ctx.say("Nick's garden is ready for Daisy. Gatsby's promised envelope is waiting on the table.", 4.5, true);
+          this.ctx.say("Nick's house is ready for Daisy. Gatsby's promised envelope is waiting inside.", 4.5, true);
           this.ctx.dom.titleFlash("A GARDEN FOR DAISY");
           if (document.pointerLockElement === this.ctx.engine.domElement) document.exitPointerLock();
         }
@@ -861,7 +898,7 @@ export class NicksHouseChapter {
 
   private readonly onContextMenu = (event: MouseEvent): void => event.preventDefault();
 
-  private raycastFlowerTarget(): { flower?: THREE.Group; spot?: FlowerSpot } | null {
+  private raycastFlowerTarget(): { flower?: THREE.Group; spot?: FlowerSpot; vase?: THREE.Group } | null {
     const camera = this.ctx.camera;
     this.ctx.scene.updateMatrixWorld(true);
     camera.updateMatrixWorld(true);
@@ -878,17 +915,27 @@ export class NicksHouseChapter {
       return null;
     }
     const available = this.flowers.filter((flower) => flower.parent === this.gameRoot);
-    const vases = this.spots.filter((spot) => !spot.flower).map((spot) => spot.root);
+    const vaseTargets = this.vaseRaycastTargets.filter((vase) => !vase.userData.daisyPlaced);
     const hits = [
       ...this.raycaster.intersectObjects(available, true).map((hit) => ({ hit, kind: "flower" as const })),
-      ...this.raycaster.intersectObjects(vases, true).map((hit) => ({ hit, kind: "spot" as const })),
+      ...this.raycaster.intersectObjects(vaseTargets, true).map((hit) => ({ hit, kind: "vase" as const })),
     ].sort((a, b) => a.hit.distance - b.hit.distance);
     for (const { hit, kind } of hits) {
       if (hit.distance > 24) break;
-      if (kind === "spot") return null;
-      const flowerIndex = this.findAncestorData<number>(hit.object, "daisySourceIndex");
-      const flower = flowerIndex === null ? undefined : this.flowers[flowerIndex];
-      if (flower && flower.parent === this.gameRoot) return { flower };
+      if (kind === "vase") {
+        const vaseIndex = this.findAncestorData<number>(hit.object, "daisyVaseSpot");
+        const vase = vaseIndex === null ? undefined : this.vaseGroup?.getObjectByName(`indoor-daisy-vase-${vaseIndex + 1}`);
+        if (vase && !vase.userData.daisyPlaced) {
+        const vaseGroup = vase as THREE.Group;
+        return { flower: undefined, vase: vaseGroup, spot: undefined };
+      }
+      if (kind === "flower") {
+        const flowerIndex = this.findAncestorData<number>(hit.object, "daisySourceIndex");
+        const flower = flowerIndex === null ? undefined : this.flowers[flowerIndex];
+        if (flower && flower.parent === this.gameRoot) {
+          return { flower: flower as THREE.Group, spot: undefined, vase: undefined };
+        }
+      }
     }
     return null;
   }
@@ -921,8 +968,20 @@ export class NicksHouseChapter {
     this.physicsAggregates.push(aggregate);
   }
 
+
   private requirePhysics(): HavokPhysics {
     if (!this.ctx.physics) throw new Error("Nick's House requires Havok physics.");
     return this.ctx.physics;
   }
 }
+
+
+
+
+
+
+
+
+
+
+

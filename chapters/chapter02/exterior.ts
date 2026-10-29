@@ -23,6 +23,7 @@ export function buildExterior(addStaticCollider: AddStaticCollider): THREE.Group
   const windowGlow = new THREE.MeshStandardMaterial({ color: "#c99b55", emissive: "#6e4318", emissiveIntensity: 0.7, roughness: 0.7 });
   const lampGlow = new THREE.MeshStandardMaterial({ color: "#ffe0a1", emissive: "#ffbb69", emissiveIntensity: 1.7 });
   const metal = new THREE.MeshStandardMaterial({ color: "#3b3d3a", metalness: 0.55, roughness: 0.58 });
+  const trim = new THREE.MeshStandardMaterial({ color: "#d8cdb2", roughness: 0.8 });
   const boxGeometry = new THREE.BoxGeometry(1, 1, 1);
   const sphereGeometry = new THREE.SphereGeometry(1, 12, 8);
   const cylinderGeometry = new THREE.CylinderGeometry(1, 1, 1, 10);
@@ -42,8 +43,6 @@ export function buildExterior(addStaticCollider: AddStaticCollider): THREE.Group
   addBox(gravel, [0, -0.055, -25.5], [7.5, 0.1, 48], "west-egg-gravel-drive");
   addBox(lawnDark, [0, -0.24, -29], [52, 0.12, 49], "valley-shoulder");
   addBox(lawn, [0, -0.18, -9], [34, 0.12, 27], "west-egg-lawn");
-
-  const trim = new THREE.MeshStandardMaterial({ color: "#d8cdb2", roughness: 0.8 });
 
   // A low stone wall, gate pillars, and garden beds distinguish Nick's modest plot.
   for (const side of [-1, 1]) {
@@ -93,49 +92,78 @@ export function buildExterior(addStaticCollider: AddStaticCollider): THREE.Group
   };
   addBoundary([-17, 3, -23], [0.5, 6, 52], "west-egg-invisible-west-boundary");
   addBoundary([17, 3, -23], [0.5, 6, 52], "west-egg-invisible-east-boundary");
-  addBoundary([0, 3, 2.5], [34.5, 6, 0.5], "west-egg-invisible-south-boundary");
   addBoundary([0, 3, -48.5], [34.5, 6, 0.5], "west-egg-invisible-north-boundary");
-    addBox(houseWall, [-2.55, 1.5, -4.16], [2.9, 3, 0.22], "nicks-house-front-left");
-    addBox(houseWall, [2.55, 1.5, -4.16], [2.9, 3, 0.22], "nicks-house-front-right");
-    addBox(houseWall, [0, 2.58, -4.16], [2.3, 0.84, 0.22], "nicks-house-front-lintel");
-    addBox(roof, [0, 3.35, -4.2], [9.2, 0.28, 8.5], "nicks-house-roof-eave");
-    for (const side of [-1, 1]) {
-      addBox(houseWall, [side * 4.12, 1.5, -0.1], [0.22, 3, 8.1], `nicks-house-exterior-side-${side}`);
-      addBox(roof, [side * 3.1, 3.55, -0.1], [3.3, 0.2, 8.5], `nicks-house-roof-slope-${side}`).rotation.z = side * -0.28;
-      addBox(houseWall, [side * 1.55, 1.45, -4.38], [0.16, 2.9, 0.22], `nicks-house-porch-post-${side}`);
-    }
-    addBox(roof, [0, 2.9, -4.42], [3.5, 0.18, 1.1], "nicks-house-porch-roof");
-    addBox(stone, [0, 0.08, -5.0], [3.2, 0.16, 2.6], "nicks-house-front-steps");
+  // The south wall screens the back of the estate but leaves a gap into the side garden
+  // so Nick can walk straight through the house and out the back door into the backyard.
+  addBoundary([-17, 3, 2.5], [15.1, 6, 0.5], "west-egg-invisible-south-left-boundary");
+  addBoundary([17, 3, 2.5], [15.1, 6, 0.5], "west-egg-invisible-south-right-boundary");
+
+  const doorTrimMaterial = new THREE.MeshStandardMaterial({ color: "#3a2c1f", roughness: 0.78 });
+  const stepStone = new THREE.MeshStandardMaterial({ color: "#6f6a5c", roughness: 0.9 });
+
+  // --- Front of the house: door, lintel, porch steps, front porch, front lights. ---
+  addBox(houseWall, [-2.55, 1.5, -4.16], [2.9, 3, 0.22], "nicks-house-front-left");
+  addBox(houseWall, [2.55, 1.5, -4.16], [2.9, 3, 0.22], "nicks-house-front-right");
+  addBox(houseWall, [0, 2.58, -4.16], [2.3, 0.84, 0.22], "nicks-house-front-lintel");
+  addBox(roof, [0, 3.35, -4.2], [9.2, 0.28, 8.5], "nicks-house-roof-eave");
+  for (const side of [-1, 1]) {
+    addBox(houseWall, [side * 4.12, 1.5, -0.1], [0.22, 3, 8.1], `nicks-house-exterior-side-${side}`);
+    addBox(roof, [side * 3.1, 3.55, -0.1], [3.3, 0.2, 8.5], `nicks-house-roof-slope-${side}`).rotation.z = side * -0.28;
+    addBox(houseWall, [side * 1.55, 1.45, -4.38], [0.16, 2.9, 0.22], `nicks-house-porch-post-${side}`);
+    addBox(doorTrimMaterial, [side * 1.15, 1.15, -4.22], [0.09, 2.35, 0.13], `nicks-house-door-casing-${side}`);
+  }
+  addBox(roof, [0, 2.9, -4.42], [3.5, 0.18, 1.1], "nicks-house-porch-roof");
+  addBox(stone, [0, 0.08, -5.0], [3.2, 0.16, 2.6], "nicks-house-front-steps");
+  addBox(stepStone, [0, 0.08, -4.7], [2.3, 0.14, 0.85], "nicks-house-front-threshold");
   const porchLight = new THREE.PointLight("#ffd39a", 9, 12, 2);
   porchLight.position.set(0, 2.4, -4.9);
   root.add(porchLight);
-    add(sphereGeometry, lampGlow, [0, 2.4, -4.68], [0.2, 0.28, 0.2], "nicks-house-porch-lamp");  // West Egg's estate entrance: clipped hedges, a pale fence, and warm lamps.
-  for (const side of [-1, 1]) {
+  add(sphereGeometry, lampGlow, [0, 2.4, -4.68], [0.2, 0.28, 0.2], "nicks-house-porch-lamp");
 
-      addBox(hedge, [side * 5.7, 0.82, -9.2], [0.72, 1.65, 0.72], `gate-pillar-${side}`);
-      addBox(stone, [side * 5.7, 1.75, -9.2], [1.05, 0.25, 1.05], `gate-cap-${side}`);
-      for (let index = 0; index < 10; index++) {
-        const z = -12.5 - index * 1.65;
-        addBox(hedge, [side * 5.8, 0.68, z], [0.55, 1.35, 1.35], `west-egg-hedge-${side}-${index}`);
-        if (index < 8) {
-          addBox(fence, [side * 7.1, 0.62, z], [0.12, 1.15, 0.12], `estate-fence-post-${side}-${index}`);
-          addBox(fence, [side * 7.1, 0.38, z - 0.55], [0.12, 0.1, 1.1], `estate-fence-rail-${side}-${index}`);
-        }
-      }
-      for (let index = 0; index < 8; index++) {
-        const z = -13 - index * 5.2;
-        add(cylinderGeometry, bark, [side * (10.5 + (index % 2) * 1.2), 2.1, z], [0.42, 4.2, 0.42], `west-egg-tree-trunk-${side}-${index}`);
-        add(sphereGeometry, index % 2 ? leaves : leavesLight, [side * (10.5 + (index % 2) * 1.2), 4.5, z], [2.5, 3.1, 2.4], `west-egg-tree-crown-${side}-${index}`);
-        add(sphereGeometry, leaves, [side * (9.6 + (index % 2) * 1.2), 4.05, z - 0.9], [1.7, 2.1, 1.8], `west-egg-tree-crown-low-${side}-${index}`);
-      }
-      for (const z of [-14, -23, -32]) {
-        add(cylinderGeometry, metal, [side * 4.7, 1.8, z], [0.09, 3.6, 0.09], `west-egg-lamppost-${side}-${z}`);
-        add(sphereGeometry, lampGlow, [side * 4.7, 3.68, z], [0.32, 0.42, 0.32], `west-egg-lamp-${side}-${z}`);
-        const light = new THREE.PointLight("#ffc987", 3.2, 8, 2);
-        light.position.set(side * 4.7, 3.7, z);
-        root.add(light);
+  // Back porch / back steps: a little stoop with a lamp, built on the backyard side.
+  addBox(houseWall, [-2.3, 1.5, 4.06], [2.0, 3, 0.22], "nicks-house-back-left");
+  addBox(houseWall, [2.3, 1.5, 4.06], [2.0, 3, 0.22], "nicks-house-back-right");
+  addBox(houseWall, [0, 2.58, 4.06], [1.2, 0.84, 0.22], "nicks-house-back-lintel");
+  addBox(doorTrimMaterial, [-0.75, 1.15, 4.12], [0.09, 2.35, 0.13], "nicks-house-back-door-casing-left");
+  addBox(doorTrimMaterial, [0.75, 1.15, 4.12], [0.09, 2.35, 0.13], "nicks-house-back-door-casing-right");
+  addBox(stepStone, [0, 0.08, 4.5], [2.3, 0.14, 0.72], "nicks-house-back-threshold");
+  addBox(stepStone, [0, 0.08, 5.05], [2.3, 0.14, 0.72], "nicks-house-back-step");
+  addBox(stepStone, [0, 0.08, 5.6], [2.3, 0.14, 0.72], "nicks-house-back-step");
+  addBox(roof, [0, 2.78, 3.78], [3.5, 0.16, 3.2], "nicks-house-back-porch-roof");
+  for (const side of [-1, 1]) {
+    addBox(houseWall, [side * 2.3, 1.45, 4.38], [0.14, 2.9, 0.22], `nicks-house-back-porch-post-${side}`);
+  }
+  const backPorchLight = new THREE.PointLight("#ffd39a", 6.5, 10, 2);
+  backPorchLight.position.set(0, 2.35, 4.25);
+  root.add(backPorchLight);
+  add(sphereGeometry, lampGlow, [0, 2.32, 4.25], [0.18, 0.24, 0.18], "nicks-house-back-porch-lamp");
+
+  // West Egg's estate entrance: clipped hedges, a pale fence, and warm lamps.
+  for (const side of [-1, 1]) {
+    addBox(hedge, [side * 5.7, 0.82, -9.2], [0.72, 1.65, 0.72], `gate-pillar-${side}`);
+    addBox(stone, [side * 5.7, 1.75, -9.2], [1.05, 0.25, 1.05], `gate-cap-${side}`);
+    for (let index = 0; index < 10; index++) {
+      const z = -12.5 - index * 1.65;
+      addBox(hedge, [side * 5.8, 0.68, z], [0.55, 1.35, 1.35], `west-egg-hedge-${side}-${index}`);
+      if (index < 8) {
+        addBox(fence, [side * 7.1, 0.62, z], [0.12, 1.15, 0.12], `estate-fence-post-${side}-${index}`);
+        addBox(fence, [side * 7.1, 0.38, z - 0.55], [0.12, 0.1, 1.1], `estate-fence-rail-${side}-${index}`);
       }
     }
+    for (let index = 0; index < 8; index++) {
+      const z = -13 - index * 5.2;
+      add(cylinderGeometry, bark, [side * (10.5 + (index % 2) * 1.2), 2.1, z], [0.42, 4.2, 0.42], `west-egg-tree-trunk-${side}-${index}`);
+      add(sphereGeometry, index % 2 ? leaves : leavesLight, [side * (10.5 + (index % 2) * 1.2), 4.5, z], [2.5, 3.1, 2.4], `west-egg-tree-crown-${side}-${index}`);
+      add(sphereGeometry, leaves, [side * (9.6 + (index % 2) * 1.2), 4.05, z - 0.9], [1.7, 2.1, 1.8], `west-egg-tree-crown-low-${side}-${index}`);
+    }
+    for (const z of [-14, -23, -32]) {
+      add(cylinderGeometry, metal, [side * 4.7, 1.8, z], [0.09, 3.6, 0.09], `west-egg-lamppost-${side}-${z}`);
+      add(sphereGeometry, lampGlow, [side * 4.7, 3.68, z], [0.32, 0.42, 0.32], `west-egg-lamp-${side}-${z}`);
+      const light = new THREE.PointLight("#ffc987", 3.2, 8, 2);
+      light.position.set(side * 4.7, 3.7, z);
+      root.add(light);
+    }
+  }
 
   // Layer a wooded perimeter around the estate, leaving the drive and front lawn open.
   for (const side of [-1, 1] as const) {
@@ -160,14 +188,13 @@ export function buildExterior(addStaticCollider: AddStaticCollider): THREE.Group
 
   // Distant Long Island houses glow through the trees on the approach.
   for (const [index, side] of [-1, 1].entries()) {
-
-      const x = side * 15;
-      const z = -23 - index * 9;
-      addBox(houseWall, [x, 1.8, z], [7.2, 3.6, 5.2], `west-egg-house-${index}`);
-      addBox(roof, [x, 3.9, z], [8.1, 0.55, 5.9], `west-egg-roof-${index}`);
-      for (const windowX of [-1.7, 1.7]) addBox(windowGlow, [x + windowX, 2.05, z - 2.64], [0.9, 1.2, 0.06], `west-egg-window-${index}-${windowX}`);
-      addBox(houseWall, [x, 0.45, z - 3.2], [2.5, 0.9, 1.8], `west-egg-porch-${index}`);
-    }
+    const x = side * 15;
+    const z = -23 - index * 9;
+    addBox(houseWall, [x, 1.8, z], [7.2, 3.6, 5.2], `west-egg-house-${index}`);
+    addBox(roof, [x, 3.9, z], [8.1, 0.55, 5.9], `west-egg-roof-${index}`);
+    for (const windowX of [-1.7, 1.7]) addBox(windowGlow, [x + windowX, 2.05, z - 2.64], [0.9, 1.2, 0.06], `west-egg-window-${index}-${windowX}`);
+    addBox(houseWall, [x, 0.45, z - 3.2], [2.5, 0.9, 1.8], `west-egg-porch-${index}`);
+  }
 
   // Gatsby's mansion rises beyond the trees, with a terrace and warm party-lit windows.
   const mansionWall = new THREE.MeshStandardMaterial({ color: "#c2b18f", roughness: 0.8 });
@@ -239,10 +266,10 @@ export function buildExterior(addStaticCollider: AddStaticCollider): THREE.Group
 
   const starPositions = new Float32Array(360 * 3);
   for (let index = 0; index < 360; index++) {
-      starPositions[index * 3] = (Math.random() - 0.5) * 150;
-      starPositions[index * 3 + 1] = 18 + Math.random() * 45;
-      starPositions[index * 3 + 2] = -82 + Math.random() * 42;
-    }
+    starPositions[index * 3] = (Math.random() - 0.5) * 150;
+    starPositions[index * 3 + 1] = 18 + Math.random() * 45;
+    starPositions[index * 3 + 2] = -82 + Math.random() * 42;
+  }
   const starGeometry = new THREE.BufferGeometry();
   starGeometry.setAttribute("position", new THREE.Float32BufferAttribute(starPositions, 3));
   const stars = new THREE.Points(starGeometry, new THREE.PointsMaterial({ color: "#e6dfcb", size: 0.22, sizeAttenuation: true, transparent: true, opacity: 0.72 }));
