@@ -47,7 +47,7 @@ export interface SeaTuning {
 }
 
 export const SEA: SeaTuning = {
-  lightZ: 16046.44,
+  lightZ: 3218.688, // 2 statute miles
   startZ: 0,
   minDistance: 24,
   retreatNear: 52,

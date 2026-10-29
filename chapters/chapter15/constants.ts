@@ -10,12 +10,12 @@ export const ENDING_BEHIND = 36;
 export const ENDING_HEIGHT = 8.5;
 export const ENDING_SECONDS = 7.5;
 
-export const WATER_WIDTH = 260;
-export const WATER_LENGTH = 420;
-export const WATER_SEGMENTS_X = 60;
+export const WATER_WIDTH = 1600;
+export const WATER_LENGTH = 10000;
+export const WATER_SEGMENTS_X = 240;
 export const WATER_SEGMENTS_Z = 88;
 export const STAR_COUNT = 1400;
-export const STAR_RADIUS = 520;
+export const STAR_RADIUS = 4000;
 
 export const RIPPLE_COUNT = 22;
 export const RIPPLE_LIFE = 2.8;

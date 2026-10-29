@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { STAR_COUNT, STAR_RADIUS, WATER_LENGTH, WATER_SEGMENTS_X, WATER_SEGMENTS_Z, WATER_WIDTH } from "./constants";
-import { sampleWave, type WaveSample } from "./water";
+import { SEA, sampleWave, type WaveSample } from "./water";
 
 export interface Ocean {
   readonly group: THREE.Group;
@@ -8,11 +8,7 @@ export interface Ocean {
   update(time: number, boatX: number, boatZ: number): void;
 }
 
-/**
- * The Sound at night: one long height-field of dark water, lit only by a low
- * moon, with the swells shared with `water.ts` so the boat sits exactly on the
- * surface it is drawn against.
- */
+/** The Sound at night: one long height-field of dark water, lit only by a low moon, with the swells shared with `water.ts` so the boat sits exactly on the surface it is drawn against. */
 export function createOcean(glow: THREE.Texture): Ocean {
   const group = new THREE.Group();
   group.name = "chapter15-sea";
@@ -45,17 +41,16 @@ export function createOcean(glow: THREE.Texture): Ocean {
   }
   const starGeometry = new THREE.BufferGeometry();
   starGeometry.setAttribute("position", new THREE.BufferAttribute(starPositions, 3));
-  const starPhases = new Float32Array(STAR_COUNT);
   const starColors = new Float32Array(STAR_COUNT * 3);
   for (let i = 0; i < STAR_COUNT; i++) {
-    starPhases[i] = Math.random() * Math.PI * 2;
+    // Static star colors - no twinkling
     starColors[i * 3] = 1;
     starColors[i * 3 + 1] = 0.79;
     starColors[i * 3 + 2] = 0.48;
   }
   starGeometry.setAttribute("color", new THREE.BufferAttribute(starColors, 3));
   const stars = new THREE.Points(starGeometry, new THREE.PointsMaterial({
-    map: glow, color: 0xffffff, size: 2.4, sizeAttenuation: true, transparent: true,
+    map: glow, color: 0xffffff, size: 18, sizeAttenuation: true, transparent: true,
     opacity: 0.88, vertexColors: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false,
   }));
   stars.name = "chapter15-stars";
@@ -88,47 +83,29 @@ export function createOcean(glow: THREE.Texture): Ocean {
   moon.scale.setScalar(31);
   group.add(moon);
 
-  const dustCount = 260;
-  const dustPositions = new Float32Array(dustCount * 3);
-  const dustPhases = new Float32Array(dustCount);
-  for (let i = 0; i < dustCount; i++) {
-    dustPositions[i * 3] = (Math.random() - 0.5) * 360;
-    dustPositions[i * 3 + 1] = 8 + Math.random() * 145;
-    dustPositions[i * 3 + 2] = (Math.random() - 0.5) * 360;
-    dustPhases[i] = Math.random() * Math.PI * 2;
-  }
-  const dustGeometry = new THREE.BufferGeometry();
-  dustGeometry.setAttribute("position", new THREE.BufferAttribute(dustPositions, 3));
-  const skyDust = new THREE.Points(dustGeometry, new THREE.PointsMaterial({
-    map: glow, color: 0xffcf79, size: 4.8, sizeAttenuation: true, transparent: true,
-    opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false, fog: false,
-  }));
-  skyDust.name = "chapter15-sky-glow-particles";
-  skyDust.frustumCulled = false;
-  group.add(skyDust);
-
   const sample: WaveSample = { height: 0, slopeX: 0, slopeZ: 0 };
   return {
     group,
     update(time: number, boatX: number, boatZ: number): void {
-      group.position.set(boatX, 0, boatZ);
-      skyHalo.position.set(boatX - 150, 178, boatZ + 160);
-      moonGlow.position.set(boatX - 150, 175, boatZ + 165);
-      moon.position.copy(moonGlow.position);
-      for (let i = 0; i < STAR_COUNT; i++) {
-        const twinkle = 0.18 + 0.82 * (0.5 + 0.5 * Math.sin(time * (1.3 + (i % 7) * 0.17) + starPhases[i]));
-        starGeometry.attributes.color.setXYZ(i, twinkle, 0.79 * twinkle, 0.48 * twinkle);
-      }
-      starGeometry.attributes.color.needsUpdate = true;
-      for (let i = 0; i < dustCount; i++) {
-        dustPositions[i * 3 + 1] += Math.sin(time * 0.65 + dustPhases[i]) * 0.006;
-      }
-      dustGeometry.attributes.position.needsUpdate = true;
-      (skyDust.material as THREE.PointsMaterial).opacity = 0.62 + 0.22 * Math.sin(time * 0.9);
-      skyHalo.material.opacity = 0.15 + 0.06 * (0.5 + 0.5 * Math.sin(time * 0.55));
-      skyHalo.scale.set(260 + 14 * Math.sin(time * 0.55), 184 + 10 * Math.sin(time * 0.55), 1);
-      moonGlow.material.opacity = 0.46 + 0.08 * Math.sin(time * 0.7);
-      moon.material.opacity = 0.44 + 0.06 * Math.sin(time * 0.7);
+      // Only the water rides with the boat. The sky is world scenery and stays
+      // fixed in place as the yacht moves beneath it.
+      water.position.set(boatX, 0, boatZ);
+      // The sky is dark as the voyage begins and its glow returns as the boat
+      // travels further down the Sound toward the light.
+      const progress = Math.max(0, Math.min(1, boatZ / SEA.lightZ));
+      const baseOpacity = 0.12 + progress * 0.88;
+      // The lights fade in over and over rather than holding one level.
+      const glowPulse = 0.45 + 0.55 * (0.5 + 0.5 * Math.sin(time * 0.9));
+
+      skyHalo.material.opacity = 0.15 * baseOpacity * glowPulse;
+      skyHalo.scale.set(260, 184, 1);
+
+      moonGlow.material.opacity = 0.46 * baseOpacity * glowPulse;
+      moon.material.opacity = 0.44 * baseOpacity;
+
+      // Stars are static and fade with the rest of the sky.
+      (stars.material as THREE.PointsMaterial).opacity = 0.88 * baseOpacity * glowPulse;
+
       for (let i = 0; i < count; i++) {
         sampleWave(localX[i] + boatX, localZ[i] + boatZ, time, sample);
         position.setY(i, sample.height);
@@ -139,4 +116,4 @@ export function createOcean(glow: THREE.Texture): Ocean {
       normal.needsUpdate = true;
     },
   };
-}
+}
