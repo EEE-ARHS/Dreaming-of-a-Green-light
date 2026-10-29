@@ -26,27 +26,6 @@ export interface ChapterCatalogEntry {
 
 export const CHAPTER_CATALOG: ChapterCatalogEntry[] = [
   {
-    id: "nicksHouse",
-    slot: nicksHouseManifest.slot,
-    name: nicksHouseManifest.name,
-    blurb: nicksHouseManifest.blurb,
-    command: nicksHouseManifest.command,
-    how: nicksHouseManifest.how,
-    locked: false,
-    scene: "west-egg",
-    firstPerson: true,
-    hud: {
-      brand: "NICK'S HOUSE",
-      sub: "WEST EGG · 1922",
-      keys: [
-        { key: "WASD", label: "walk" },
-        { key: "MOUSE", label: "look" },
-        { key: "E", label: "trunk / carry" },
-        { key: "ESC", label: "chapters" },
-      ],
-    },
-  },
-  {
     id: "chapter02",
     slot: "CHAPTER 02",
     name: "????????",
@@ -106,6 +85,29 @@ export const CHAPTER_CATALOG: ChapterCatalogEntry[] = [
   },
   ...Array.from({ length: 4 }, (_, index): ChapterCatalogEntry => {
     const number = index + 7;
+    if (number === 7) {
+      return {
+        id: "nicksHouse",
+        slot: nicksHouseManifest.slot,
+        name: nicksHouseManifest.name,
+        blurb: nicksHouseManifest.blurb,
+        command: nicksHouseManifest.command,
+        how: nicksHouseManifest.how,
+        locked: false,
+        scene: "west-egg",
+        firstPerson: true,
+        hud: {
+          brand: "NICK'S HOUSE",
+          sub: "CHAPTER VII · WEST EGG",
+          keys: [
+            { key: "WASD / ARROWS", label: "walk" },
+            { key: "I J K L", label: "look" },
+            { key: "LEFT CLICK", label: "pick up / place daisies" },
+            { key: "ESC", label: "chapters" },
+          ],
+        },
+      };
+    }
     return {
       id: `chapter${String(number).padStart(2, "0")}`,
       slot: `CHAPTER ${String(number).padStart(2, "0")}`,

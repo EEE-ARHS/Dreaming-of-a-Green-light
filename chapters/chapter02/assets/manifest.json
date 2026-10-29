@@ -1,9 +1,9 @@
 {
-  "slot": "CHAPTER 01",
+  "slot": "CHAPTER 07",
   "name": "NICK'S HOUSE",
-  "blurb": "Nick has finally brought his things home to West Egg. Unpack the car, carry each belonging inside, and make the little house your own.",
-  "command": "WELCOME HOME",
-  "how": "First-person · WASD / arrow keys to walk · IJKL look · E opens the trunk and picks up or sets down belongings · ESC for chapters",
+  "blurb": "Gatsby asks Nick to prepare his house for Daisy's visit. Mow the backyard and arrange the daisies he loves.",
+  "command": "A GARDEN FOR DAISY",
+  "how": "First-person · WASD / arrow keys walk · IJKL look · Mow every row of the marked lawn · Click a daisy, then click an outlined vase · ESC for chapters",
   "models": {
     "format": "glb or gltf; keep source files in assets/3d/ and copy runtime files into the frontend public root",
     "house": { "path": null, "fit": { "targetSize": [8, 3, 8], "alignBottom": true } },
@@ -21,16 +21,16 @@
   "flavor": {
     "win": {
       "kicker": "CHAPTER I · WEST EGG",
-      "title": "A HONEST HOUSE",
-      "body": "All {count} of Nick's belongings are finally inside. The last box settles by the window; the little West Egg house begins to feel like a home, while across the bay the lights of Gatsby's party come alive.",
-      "quote": "I am one of the few honest people that I have ever known.",
+      "title": "A GARDEN FOR DAISY",
+      "body": "Nick mowed every row and placed the daisies around his little West Egg home. Gatsby's money bought a beautiful afternoon, and Daisy would find the garden waiting.",
+      "quote": "I hope she'll be a fool — that's the best thing a girl can be in this world, a beautiful little fool.",
       "cite": "F. Scott Fitzgerald, The Great Gatsby"
     },
     "lose": {
       "kicker": "CHAPTER I · WEST EGG",
-      "title": "A HOUSE STILL WAITING",
-      "body": "Nick's belongings remain scattered between the car and the open doorway. There is no hurry. His home will be waiting whenever you are ready to finish unpacking.",
-      "quote": "So we beat on, boats against the current, borne back ceaselessly into the past.",
+      "title": "A GARDEN STILL WAITING",
+      "body": "The lawn still has uncut rows and the vases are waiting for daisies. Gatsby's offer remains on the table whenever Nick is ready to finish.",
+      "quote": "I hope she'll be a fool — that's the best thing a girl can be in this world, a beautiful little fool.",
       "cite": "F. Scott Fitzgerald, The Great Gatsby"
     }
   }

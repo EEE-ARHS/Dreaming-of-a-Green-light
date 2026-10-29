@@ -382,7 +382,7 @@ function App() {
       <div id="crosshair" aria-hidden="true" />
       <footer>
         <div className="chapter"><span className="chapter-no">CHAPTERS</span><span className="chapter-note">Silver-screen stories · Three.js</span></div>
-        <div className="keys">{selectedChapter === "nicksHouse" ? <><span><b>WASD / ↑↓←→</b> walk</span><span><b>I J K L</b> look</span><span><b>E</b> grab / set down item under crosshair · open trunk</span><span><b>Hold left mouse</b> drag items / open doors</span><span><b>ESC</b> chapters</span></> : hudKeys.map((entry) => <span key={`${entry.key}-${entry.label}`}><b>{entry.key}</b> {entry.label}</span>)}</div>
+        <div className="keys">{selectedChapter === "nicksHouse" ? <><span><b>WASD / ↑↓←→</b> walk</span><span><b>I J K L</b> look</span><span><b>Walk the rows</b> mow the whole lawn</span><span><b>Left click</b> grab a daisy, then click an outlined vase</span><span><b>ESC</b> chapters</span></> : hudKeys.map((entry) => <span key={`${entry.key}-${entry.label}`}><b>{entry.key}</b> {entry.label}</span>)}</div>
       </footer>
     </main>
 

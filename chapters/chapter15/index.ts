@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import type { Chapter, ChapterContext, ChapterFlavor, ChapterOutcome } from "../../frontend/src/chapters/types";
 import { disposeObjectTree } from "../../frontend/src/scene-resources";
+import { BoatAudio } from "./audio";
 import { crateCounter } from "../../frontend/src/ui";
 import manifest from "./assets/manifest.json";
 import { createLuxuryYacht, type LuxuryYachtRig } from "./boat";
@@ -55,6 +56,8 @@ export class BoatsAgainstTheCurrentChapter implements Chapter {
   readonly physicsScale = 1;
 
   private readonly ctx: ChapterContext;
+  private readonly boatAudio = new BoatAudio();
+  private removeAudioUnlock: (() => void) | null = null;
   private group: THREE.Group | null = null;
   private ocean: Ocean | null = null;
   private shore: Shore | null = null;
@@ -209,6 +212,7 @@ private counter: HTMLElement | null = null;
     dom.letterbox.classList.remove("on");
     // Keep shared car audio muted; this chapter uses its own quiet motor yacht.
     this.ctx.audio.setEngine(0, 0, true);
+    this.removeAudioUnlock = this.ctx.onKey(() => { void this.boatAudio.unlock(); });
     this.ctx.dom.speedValue.textContent = "0";
     document.body.classList.remove("boats-fast");
     document.body.style.removeProperty("--boat-speed");
@@ -228,6 +232,12 @@ private counter: HTMLElement | null = null;
     else this.updateCinematic(dt);
     if (this.phase !== "cinematic") this.updateText(dt);
     this.updateSpeedometer();
+    this.boatAudio.setDrive(
+      Math.hypot(this.boat.vx, this.boat.vz),
+      this.phase === "sailing" ? Number(this.ctx.keys.has("w")) : 0,
+      this.phase === "sailing",
+      this.ctx.audio.getMuted(),
+    );
 
     ocean.update(this.time, this.boat.x, this.boat.z);
     shore.update(this.lightZ, this.ctx.camera.position.z, this.time, distanceToLight(this.boat, this.lightZ));
@@ -261,7 +271,9 @@ private counter: HTMLElement | null = null;
   }
 
   dispose(): void {
-
+    this.removeAudioUnlock?.();
+    this.removeAudioUnlock = null;
+    this.boatAudio.dispose();
     document.body.classList.remove("boats-fast");
     document.body.classList.remove("chapter15-active");
     this.endingOverlay?.remove();
@@ -327,9 +339,9 @@ private counter: HTMLElement | null = null;
     this.spawnWake(dt);
     this.updateBeats(distance);
 
-    // Start the passage once the boat is 2.4 miles from the green light.
+    // Start the passage when the boat is 1.8 miles from the green light.
     const currentDistance = distanceToLight(this.boat, this.lightZ);
-    const textTriggerDistance = 2.4 * 1609.344;
+    const textTriggerDistance = 1.8 * 1609.344;
     if (!this.textTriggered && currentDistance <= textTriggerDistance) {
       this.textTriggered = true;
       this.textLines = [
@@ -367,6 +379,7 @@ private counter: HTMLElement | null = null;
     if (this.endingOverlay) this.endingOverlay.style.opacity = "0";
     if (this.counter) this.counter.textContent = "";
     if (this.blackout) this.blackout.style.opacity = "1";
+    this.boatAudio.dramaticCut();
     if (this.finalLine) this.finalLine.textContent = "";
     if (this.finalDot) this.finalDot.style.opacity = "0";
     if (this.finalGlow) this.finalGlow.style.opacity = "0";
@@ -381,8 +394,15 @@ private counter: HTMLElement | null = null;
       this.finalTyped = 0;
     }
     if (this.finalTyped < line.length) {
+      const previousCharacterCount = Math.floor(this.finalTyped);
       this.finalTyped = Math.min(line.length, this.finalTyped + dt * 14);
-      if (this.finalLine) this.finalLine.textContent = line.slice(0, Math.floor(this.finalTyped));
+      const characterCount = Math.floor(this.finalTyped);
+      if (characterCount > previousCharacterCount) {
+        for (let index = previousCharacterCount; index < characterCount; index++) {
+          if (line[index] !== " ") this.boatAudio.typeTick(index, true);
+        }
+      }
+      if (this.finalLine) this.finalLine.textContent = line.slice(0, characterCount);
       if (this.finalTyped >= line.length) this.finalTextDoneAt = this.cinematicElapsed;
       return;
     }
@@ -417,8 +437,15 @@ private counter: HTMLElement | null = null;
       this.textFinished = true;
       return;
     }
+    const previousCharacterCount = Math.floor(this.textTyped);
     this.textTyped = Math.min(line.length, this.textTyped + dt * 18);
-    if (this.endingText) this.endingText.textContent = line.slice(0, Math.floor(this.textTyped));
+    const characterCount = Math.floor(this.textTyped);
+    if (characterCount > previousCharacterCount) {
+      for (let index = previousCharacterCount; index < characterCount; index++) {
+        if (line[index] !== " ") this.boatAudio.typeTick(index);
+      }
+    }
+    if (this.endingText) this.endingText.textContent = line.slice(0, characterCount);
     if (this.textTyped >= line.length) this.textPause = 5;
   }
 
