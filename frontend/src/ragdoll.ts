@@ -6,6 +6,7 @@ import {
   PART_DEFS, JOINT_DEFS
 } from "./ragdoll-constants";
 import { createMyrtlePartMesh } from "./myrtle-model";
+import { MYRTLE_Z } from "./world-constants";
 
 type Part = {
   def: PartDef;
@@ -21,9 +22,9 @@ export type MyrtleMode = "idle" | "crossing" | "waving" | "ragdoll";
 export class Myrtle {
   readonly parts: Part[] = [];
   readonly joints: PhysicsConstraint[] = [];
-  readonly startPosition = new Vector3(8.3, 0, 148.5);
-  readonly position = new Vector3(8.3, 0, 148.5);
-  readonly root = new Vector3(8.3, 0, 148.5);
+  readonly startPosition = new Vector3(8.3, 0, MYRTLE_Z);
+  readonly position = new Vector3(8.3, 0, MYRTLE_Z);
+  readonly root = new Vector3(8.3, 0, MYRTLE_Z);
   yaw = -Math.PI / 2; mode: MyrtleMode = "idle"; walkPhase = 0; walkBlend = 0; waveBlend = 0;
   private readonly partMap = new Map<string, Part>();
   private readonly materials: Record<PartMaterial, MeshStandardMaterial>;
@@ -85,7 +86,7 @@ export class Myrtle {
     if (this.mode === "crossing") { this.position.x -= 2.05 * dt; if (this.position.x <= 1.15) { this.position.x = 1.15; this.mode = "waving"; } this.yaw = -Math.PI / 2; }
     else if (this.mode === "waving") this.yaw += (-Math.PI / 2 - 0.25 - this.yaw) * Math.min(1, dt * 2);
     else this.yaw += (-Math.PI / 2 + 0.1 - this.yaw) * Math.min(1, dt * 0.6);
-    this.walkPhase += dt * 6.2 * (0.25 + this.walkBlend); this.position.z = 148.5; this.pose(this.walkPhase);
+    this.walkPhase += dt * 6.2 * (0.25 + this.walkBlend); this.position.z = MYRTLE_Z; this.pose(this.walkPhase);
   }
   private pose(phase: number): void {
     const origin = this.position, bob = Math.sin(phase * 2) * 0.014 * this.walkBlend + Math.sin(phase * 0.7) * 0.004, lean = 0.06 * this.walkBlend;
@@ -132,9 +133,9 @@ export class Myrtle {
     for (const part of this.parts) { part.body.setLinearVelocity(new Vector3()); part.body.setAngularVelocity(new Vector3()); part.body.setMotionType(PhysicsMotionType.DYNAMIC); }
     for (const part of this.parts) {
       const radial = part.mesh.position.clone().sub(impact); radial.y = Math.abs(radial.y) + 0.25; if (radial.lengthSq() > 0.0001) radial.normalize();
-      const shove = carVelocity.clone().multiplyScalar(0.62 + Math.random() * 0.18), jitter = new Vector3((Math.random() - 0.5) * 2.6, 1.1 + Math.random() * 2.2, (Math.random() - 0.5) * 2.6);
-      part.body.setLinearVelocity(shove.add(jitter).addScaledVector(radial, 2.4 + Math.random() * 1.8));
-      part.body.setAngularVelocity(new Vector3((Math.random() - 0.5) * 9, (Math.random() - 0.5) * 9, (Math.random() - 0.5) * 9));
+      const shove = carVelocity.clone().multiplyScalar(1.25 + Math.random() * 0.25), jitter = new Vector3((Math.random() - 0.5) * 4.5, 2.2 + Math.random() * 3.2, (Math.random() - 0.5) * 4.5);
+      part.body.setLinearVelocity(shove.add(jitter).addScaledVector(radial, 4.5 + Math.random() * 2.5));
+      part.body.setAngularVelocity(new Vector3((Math.random() - 0.5) * 16, (Math.random() - 0.5) * 16, (Math.random() - 0.5) * 16));
     }
   }
   getHitTestPoints(): Vector3[] { return ["pelvis", "torso", "head", "thighL", "thighR", "shinL", "shinR"].map((name) => this.partMap.get(name)!.mesh.position.clone()); }

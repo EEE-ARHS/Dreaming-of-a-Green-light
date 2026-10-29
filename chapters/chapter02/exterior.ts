@@ -176,9 +176,26 @@ export function buildExterior(addStaticCollider: AddStaticCollider): THREE.Group
   const mansionX = 16.2;
   const mansionZ = -49;
   addBox(lawnDark, [mansionX, 0.1, mansionZ + 4], [21, 0.2, 17], "gatsby-mansion-terrace");
+  const dockWood = new THREE.MeshStandardMaterial({ color: "#554839", roughness: 0.92 });
+  addBox(dockWood, [mansionX, 0.04, mansionZ - 17], [5.2, 0.24, 26], "gatsby-dock-walkway");
+  for (let plank = 0; plank < 18; plank++) {
+    addBox(dockWood, [mansionX, 0.18, mansionZ - 4 - plank * 1.45], [5.45, 0.12, 0.11], `gatsby-dock-plank-${plank}`);
+  }
+  for (const side of [-1, 1]) {
+    for (let pier = 0; pier < 7; pier++) {
+      const z = mansionZ - 4 - pier * 4;
+      add(cylinderGeometry, dockWood, [mansionX + side * 2.35, -0.62, z], [0.2, 1.45, 0.2], `gatsby-dock-pile-${side}-${pier}`);
+    }
+    addBox(mansionTrim, [mansionX + side * 2.35, 0.7, mansionZ - 17], [0.12, 0.12, 26], `gatsby-dock-rail-${side}`);
+  }
   addBox(mansionWall, [mansionX, 5.2, mansionZ], [15, 10.4, 9], "gatsby-mansion");
   addBox(mansionWall, [mansionX, 2.9, mansionZ + 5.8], [19, 5.8, 4], "gatsby-mansion-ballroom-wing");
   addBox(roof, [mansionX, 10.65, mansionZ], [17, 0.65, 11], "gatsby-mansion-roof");
+  addBox(mansionWall, [mansionX, 2.2, mansionZ + 6.75], [8.2, 0.32, 2.1], "gatsby-mansion-porch");
+  addBox(mansionTrim, [mansionX, 2.08, mansionZ + 6.7], [8.4, 0.12, 2.25], "gatsby-mansion-porch-step");
+  for (const side of [-1, 1]) {
+    add(cylinderGeometry, mansionTrim, [mansionX + side * 3.5, 3.75, mansionZ + 5.5], [0.16, 3.1, 0.16], `gatsby-mansion-porch-column-${side}`);
+  }
   addBox(roof, [mansionX, 6, mansionZ + 5.8], [20, 0.5, 4.8], "gatsby-ballroom-roof");
   addBox(mansionTrim, [mansionX, 10.98, mansionZ], [13, 0.12, 0.16], "gatsby-mansion-roofline");
   for (const floorY of [2.7, 5.1, 7.7]) {

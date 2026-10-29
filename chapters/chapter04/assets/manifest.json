@@ -1,0 +1,24 @@
+{
+  "id": "crowdAtGatsbys",
+  "slot": "CHAPTER IV",
+  "name": "THE GUESTS",
+  "blurb": "As Nick, step into Gatsby's midnight crowd and clear a path by throwing guests aside until their host comes into view.",
+  "command": "FIND GATSBY",
+  "how": "First-person as Nick · WASD / arrow keys to move · mouse to look · F pushes a nearby guest · hold left click on a guest, drag to aim, and release to throw them · ESC for chapters.",
+  "flavor": {
+    "win": {
+      "kicker": "CHAPTER IV · WEST EGG",
+      "title": "GATSBY, AT LAST",
+      "body": "The last guest tumbles from the aisle. At the far end of the glittering room, Gatsby waits beneath the green light.",
+      "quote": "I was within and without, simultaneously enchanted and repelled by the inexhaustible variety of life.",
+      "cite": "Nick Carraway"
+    },
+    "lose": {
+      "kicker": "CHAPTER IV · WEST EGG",
+      "title": "THE CROWD REMAINS",
+      "body": "The party goes on behind a wall of guests. Gatsby is still somewhere in the room.",
+      "quote": "There are only the pursued, the pursuing, the busy and the tired.",
+      "cite": "Jordan Baker"
+    }
+  }
+}

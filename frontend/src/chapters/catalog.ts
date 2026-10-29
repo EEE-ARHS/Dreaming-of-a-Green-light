@@ -1,4 +1,5 @@
 import nicksHouseManifest from "../../../chapters/chapter02/assets/manifest.json";
+import crowdAtGatsbysManifest from "../../../chapters/chapter04/assets/manifest.json";
 import crashDriveManifest from "../../../chapters/chapter06/assets/manifest.json";
 import boatsAgainstManifest from "../../../chapters/chapter15/assets/manifest.json";
 import gatsbysDissolutionManifest from "../../../chapters/Gatsbys Dissolution/assets/manifest.json";
@@ -64,13 +65,26 @@ export const CHAPTER_CATALOG: ChapterCatalogEntry[] = [
     locked: true,
   },
   {
-    id: "chapter04",
-    slot: "CHAPTER 04",
-    name: "????????",
-    blurb: "An undecided chapter is waiting in the wings.",
-    command: "...",
-    how: "This Gatsby chapter is not available yet.",
-    locked: true,
+    id: crowdAtGatsbysManifest.id,
+    slot: crowdAtGatsbysManifest.slot,
+    name: crowdAtGatsbysManifest.name,
+    blurb: crowdAtGatsbysManifest.blurb,
+    command: crowdAtGatsbysManifest.command,
+    how: crowdAtGatsbysManifest.how,
+    locked: false,
+    scene: "west-egg",
+    firstPerson: true,
+    hud: {
+      brand: "NICK AT GATSBY'S",
+      sub: "CHAPTER IV · WEST EGG",
+      keys: [
+        { key: "WASD / ARROWS", label: "step through crowd" },
+        { key: "MOUSE", label: "look" },
+        { key: "F", label: "push nearby guest" },
+        { key: "HOLD + DRAG", label: "aim and throw a guest" },
+        { key: "ESC", label: "chapters" },
+      ],
+    },
   },
   {
     id: "chapter05",

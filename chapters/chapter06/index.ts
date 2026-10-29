@@ -210,7 +210,7 @@ export class CrashDriveChapter {
     this.hit = true; this.aftermath = true; this.phase = "impact"; this.impactElapsed = 0;
     this.impactMph = Math.round(toMph(car.speed)); this.timeScaleHint = 0.34; this.won = true;
     this.spawnImpactParticles(myrtle.getCenter());
-    myrtle.activate(car.forward.multiplyScalar(Math.max(5, Math.abs(car.speed)))); car.crashed = true;
+    myrtle.activate(car.forward.multiplyScalar(Math.max(18, Math.abs(car.speed) * 1.35))); car.crashed = true;
     audio.impact(); this.ctx.dom.flash.classList.add("fire");
     window.setTimeout(() => this.ctx.dom.flash.classList.remove("fire"), 120);
     this.shake = 1.15; this.captionQueue.length = 0; this.captionTimer = 0;

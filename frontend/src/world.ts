@@ -4,7 +4,7 @@ import {
   PlaneGeometry, PointLight, Scene, SphereGeometry, Vector3, type Object3D,
 } from "three";
 import { HavokPhysics, PhysicsAggregate, PhysicsShapeType } from "./physics";
-import { ROAD_Z_START, ROAD_Z_END, ROAD_LENGTH, ROAD_CENTER_Z, ROAD_HALF_WIDTH } from "./world-constants";
+import { MYRTLE_Z, ROAD_Z_START, ROAD_Z_END, ROAD_LENGTH, ROAD_CENTER_Z, ROAD_HALF_WIDTH } from "./world-constants";
 import {
   worldColor as color, basicMaterial as basic, emissiveBasicMaterial as emissiveBasic,
   standardMaterial as standard, fleckTexture, textTexture,
@@ -43,7 +43,7 @@ export function createWorld(scene: Scene, quality: number, physics: HavokPhysics
       ctx.beginPath(); ctx.arc(Math.random() * 512, Math.random() * 300, Math.random() < 0.12 ? 1.4 : 0.8, 0, Math.PI * 2); ctx.fill();
     }
   });
-  const sky = mesh(new SphereGeometry(450, 24, 16), new MeshBasicMaterial({ map: skyCanvas, side: BackSide, fog: false }), new Vector3(0, 0, ROAD_CENTER_Z), scene);
+  const sky = mesh(new SphereGeometry(450, 24, 16), new MeshBasicMaterial({ map: skyCanvas, side: BackSide, fog: false }), new Vector3(0, 0, 0), scene);
   sky.name = "skyDome"; sky.frustumCulled = false; sky.castShadow = false;
   addSphere(scene, "moonDisc", 18, [-170, 155, ROAD_CENTER_Z + 330], basic("#dfe5ef", { fog: false }));
 
@@ -65,19 +65,19 @@ export function createWorld(scene: Scene, quality: number, physics: HavokPhysics
       ctx.stroke();
     }
   });
-  roadTexture.wrapS = roadTexture.wrapT = 1000; roadTexture.repeat.set(1, 36);
+  roadTexture.wrapS = roadTexture.wrapT = 1000; roadTexture.repeat.set(1, ROAD_LENGTH / 11);
   const road = mesh(new PlaneGeometry(ROAD_HALF_WIDTH * 2, ROAD_LENGTH), standard("#26272c", { map: roadTexture, roughness: 0.95 }), new Vector3(0, 0.02, ROAD_CENTER_Z), scene);
   road.rotation.x = -Math.PI / 2; road.name = "road";
-  const ground = mesh(new PlaneGeometry(640, 760), standard("#2b2c31", { map: fleckTexture("#15161a", 9000), roughness: 1 }), new Vector3(0, -0.01, ROAD_CENTER_Z + 30), scene);
+  const ground = mesh(new PlaneGeometry(640, ROAD_LENGTH + 200), standard("#2b2c31", { map: fleckTexture("#15161a", 9000), roughness: 1 }), new Vector3(0, -0.01, ROAD_CENTER_Z), scene);
   ground.rotation.x = -Math.PI / 2; ground.name = "ashGround";
-  const collisionFloor = addBox(scene, "collisionGround", [640, 1, 780], [0, -0.5, 160], new MeshBasicMaterial({ visible: false }));
+  const collisionFloor = addBox(scene, "collisionGround", [640, 1, ROAD_LENGTH + 100], [0, -0.5, ROAD_CENTER_Z], new MeshBasicMaterial({ visible: false }));
   collisionFloor.visible = false;
   new PhysicsAggregate(collisionFloor, PhysicsShapeType.BOX, { mass: 0, friction: 0.85, restitution: 0.05 }, physics);
 
   const heapMat = standard("#2a2b2f");
-  for (let i = 0; i < 18; i++) {
+  for (let i = 0; i < 36; i++) {
     const side = i % 2 === 0 ? -1 : 1;
-    const heap = addSphere(scene, "ashHeap" + i, 1, [side * (18 + Math.random() * 55), -0.4, 40 + Math.random() * 280], heapMat, 10);
+    const heap = addSphere(scene, "ashHeap" + i, 1, [side * (18 + Math.random() * 55), -0.4, ROAD_Z_START + 30 + Math.random() * (ROAD_LENGTH - 60)], heapMat, 10);
     const r = 6 + Math.random() * 16; heap.scale.set(r, r * (0.14 + Math.random() * 0.12), r * (0.7 + Math.random() * 0.6));
   }
   const poleMat = standard("#191a1c");
@@ -96,7 +96,27 @@ export function createWorld(scene: Scene, quality: number, physics: HavokPhysics
     wire.name = "wire" + i; scene.add(wire);
   }
 
-  const billboard = new Group(); billboard.name = "eckleburg"; billboard.position.set(-24, 0, 194); billboard.rotation.y = Math.PI + 0.24; scene.add(billboard);
+  const roadsideTexts = [
+    { z: 188, side: -1, text: "HER VOICE WAS FULL OF MONEY" },
+    { z: 292, side: 1, text: "THE VALLEY OF ASHES" },
+    { z: 396, side: -1, text: "SO WE BEAT ON, BOATS AGAINST THE CURRENT" },
+    { z: 500, side: 1, text: "CARELESS PEOPLE, TOM AND DAISY" },
+    { z: 584, side: -1, text: "GATSBY BELIEVED IN THE GREEN LIGHT" },
+  ];
+  roadsideTexts.forEach(({ z, side, text }, index) => {
+    const sign = new Group();
+    sign.name = `roadsideText${index}`;
+    sign.position.set(side * 8.2, 0, z);
+    sign.rotation.y = side < 0 ? Math.PI / 2 : -Math.PI / 2;
+    scene.add(sign);
+    addBox(sign, "roadsideBoard", [9.4, 1.9, 0.32], [0, 3.15, 0], standard("#30271e", { emissive: "#100b08" }));
+    addBox(sign, "roadsideTrim", [9.65, 2.12, 0.16], [0, 3.15, 0.2], standard("#796142"));
+    for (const postZ of [-3.8, 3.8]) addBox(sign, "roadsidePost", [0.18, 3.2, 0.18], [0, 1.6, postZ], poleMat);
+    const lettering = mesh(new PlaneGeometry(8.7, 1.25), new MeshBasicMaterial({ map: textTexture(text, 8.7, 1.25, '34px Georgia, "Times New Roman", serif', "rgba(234,218,181,0.95)"), transparent: true, side: DoubleSide }), new Vector3(0, 3.15, 0.29), sign);
+    lettering.name = `roadsideLettering${index}`;
+  });
+
+  const billboard = new Group(); billboard.name = "eckleburg"; billboard.position.set(-24, 0, 350); billboard.rotation.y = Math.PI + 0.24; scene.add(billboard);
   addBox(billboard, "eckleburgBoard", [17, 7.6, 0.5], [0, 10.2, 0], standard("#26333b", { emissive: "#04070a" }));
   addBox(billboard, "eckleburgTrim", [17.9, 8.4, 0.22], [0, 10.2, -0.18], standard("#4c4a41"));
   for (const px of [-6.2, 6.2]) addBox(billboard, "boardPost", [0.62, 10, 0.62], [px, 4.4, -0.6], poleMat);
@@ -106,24 +126,24 @@ export function createWorld(scene: Scene, quality: number, physics: HavokPhysics
     addCylinder(billboard, "pupil", 0.33, 0.33, 0.18, [ex, 11.05, 1.1], standard("#101418", { emissive: "#020304" }), 20).rotation.x = Math.PI / 2;
   }
   const sign = mesh(new PlaneGeometry(13.5, 1.5), new MeshBasicMaterial({ map: textTexture("DOCTOR  T. J.  ECKLEBURG", 13.5, 1.5, '66px Georgia, "Times New Roman", serif', "rgba(196,206,200,0.66)"), transparent: true, side: DoubleSide }), new Vector3(0, 7.5, 0.3), billboard); sign.name = "eckleburgText";
-  const boardLight = new PointLight("#7f95a8", 8, 26); boardLight.position.set(-24, 12, 187); scene.add(boardLight);
+  const boardLight = new PointLight("#7f95a8", 8, 26); boardLight.position.set(-24, 12, 343); scene.add(boardLight);
 
-  const garage = new Group(); garage.name = "garage"; garage.position.set(14.4, 0, 150); scene.add(garage);
+  const garage = new Group(); garage.name = "garage"; garage.position.set(14.4, 0, MYRTLE_Z); scene.add(garage);
   const wall = standard("#2d2a25"), roof = standard("#211f1c");
   addBox(garage, "garageBox", [11, 4.6, 9], [0, 2.3, 0], wall); addBox(garage, "garageRoofBox", [12.2, 0.28, 10.2], [0, 4.7, 0], roof);
   const windowMat = basic("#c58b45");
   for (const wz of [-2.6, 0.6]) { const win = mesh(new PlaneGeometry(2, 1.1), windowMat, new Vector3(-5.51, 2.6, wz), garage); win.rotation.y = -Math.PI / 2; }
   const door = mesh(new PlaneGeometry(4.4, 3.1), standard("#171614", { emissive: "#070706", side: DoubleSide }), new Vector3(-5.51, 1.6, 3.2), garage); door.rotation.y = -Math.PI / 2;
   const garageSign = mesh(new PlaneGeometry(5.4, 1), new MeshBasicMaterial({ map: textTexture("WILSON'S  GARAGE", 5.4, 1, '92px Georgia, "Times New Roman", serif', "rgba(214,197,164,0.9)"), transparent: true, side: DoubleSide }), new Vector3(-5.48, 4, -0.4), garage); garageSign.rotation.y = -Math.PI / 2;
-  const garageLamp = new PointLight("#e0a253", 18, 23); garageLamp.position.set(8, 4.1, 148.6); scene.add(garageLamp);
-  addSphere(scene, "garageBulb", 0.26, [8.2, 4.1, 148.6], emissiveBasic("#ffd9a0", "#ffcf8a"), 10);
+  const garageLamp = new PointLight("#e0a253", 18, 23); garageLamp.position.set(8, 4.1, MYRTLE_Z - 1.4); scene.add(garageLamp);
+  addSphere(scene, "garageBulb", 0.26, [8.2, 4.1, MYRTLE_Z - 1.4], emissiveBasic("#ffd9a0", "#ffcf8a"), 10);
   const pumpMat = standard("#5b3a2c");
-  for (const z of [145.6, 148]) { addCylinder(scene, "pump", 0.3, 0.3, 1.9, [9.1, 0.95, z], pumpMat, 12); addCylinder(scene, "pumpTop", 0.22, 0.22, 0.5, [9.1, 2.05, z], standard("#c9b98d", { emissive: "#4a3a1c", transparent: true, opacity: 0.85 }), 12); }
-  addBox(scene, "canopy", [4.2, 0.18, 6.2], [10, 3.5, 146.8], roof);
-  for (const z of [144, 149.6]) addBox(scene, "canopyPost", [0.16, 3.5, 0.16], [8.4, 1.75, z], poleMat);
+  for (const offset of [-4.4, -2]) { const z = MYRTLE_Z + offset; addCylinder(scene, "pump", 0.3, 0.3, 1.9, [9.1, 0.95, z], pumpMat, 12); addCylinder(scene, "pumpTop", 0.22, 0.22, 0.5, [9.1, 2.05, z], standard("#c9b98d", { emissive: "#4a3a1c", transparent: true, opacity: 0.85 }), 12); }
+  addBox(scene, "canopy", [4.2, 0.18, 6.2], [10, 3.5, MYRTLE_Z - 3.2], roof);
+  for (const offset of [-6, -0.4]) addBox(scene, "canopyPost", [0.16, 3.5, 0.16], [8.4, 1.75, MYRTLE_Z + offset], poleMat);
 
   const bulbMat = emissiveBasic("#ffe0a0", "#ffe0a0");
-  for (const [i, z] of [24, 74, 122, 196, 244, 292].entries()) {
+  for (const [i, z] of Array.from({ length: 14 }, (_, index) => 24 + index * 76).entries()) {
     addCylinder(scene, "lampPost" + i, 0.085, 0.085, 6.4, [-8.6, 3.2, z], standard("#1c1d20"), 8);
     addBox(scene, "lampArm" + i, [2, 0.1, 0.1], [-7.7, 6.3, z], poleMat); addSphere(scene, "lampBulb" + i, 0.42, [-6.8, 6.16, z], bulbMat, 10);
     const lamp = new PointLight("#ffd089", i % 2 === 0 ? 13 : 9, 34);
@@ -142,7 +162,7 @@ export function createWorld(scene: Scene, quality: number, physics: HavokPhysics
   return {
     addShadowCaster(object) { object.traverse((child) => { child.castShadow = true; }); },
     update(dt, carPosition) {
-      moon.position.set(carPosition.x + 18, 78, carPosition.z + 26); ash.position.set(carPosition.x, 0, carPosition.z + 30);
+      moon.position.set(carPosition.x + 18, 78, carPosition.z + 26); sky.position.set(carPosition.x, 0, carPosition.z); ash.position.set(carPosition.x, 0, carPosition.z + 30);
       const attr = ashGeometry.getAttribute("position");
       for (let i = 0; i < attr.count; i++) { attr.setX(i, attr.getX(i) - dt * 0.18); attr.setY(i, Math.max(-2, Math.min(15, attr.getY(i) + dt * 0.08))); attr.setZ(i, attr.getZ(i) - dt * 0.12); }
       attr.needsUpdate = true;

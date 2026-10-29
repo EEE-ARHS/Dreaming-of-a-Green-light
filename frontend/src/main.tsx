@@ -404,7 +404,7 @@ function App() {
     <section id="menuScreen" className="overlay title-screen" aria-hidden={!titleVisible || chapterSelectOpen || Boolean(selectedChapter)}>
       <div className="title-scene-background" aria-hidden="true">{titleVisible && !selectedChapter && <Suspense fallback={null}><TitleScene /></Suspense>}</div>
       <div className="title-layout"><div className="title-copy">
-        <h1>THE GREAT GATSBY</h1><p className="title-subtitle">PLACEHOLDER</p>
+        <h1>THE GREAT GATSBY</h1><p className="title-subtitle">DREAMING OF A GREEN LIGHT</p>
         <button type="button" id="playButton" onClick={() => setChapterSelectOpen(true)}>START</button>
         <p id="titleStatus" className="fineprint" role="status" aria-live="polite">Select a chapter to begin.</p>
       </div></div>

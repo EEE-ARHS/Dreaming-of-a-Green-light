@@ -1,6 +1,7 @@
 import { Euler, Group, Mesh, PointLight, Quaternion, Scene, SpotLight, Vector3 } from "three";
 import { HavokPhysics, PhysicsAggregate, PhysicsMotionType, PhysicsShapeType } from "./physics";
 import { MAX_SPEED, WHEEL_RADIUS, CAR_ROOT_Y, CAR_BODY_EXTENTS, CAR_MASS } from "./car-constants";
+import { ROAD_Z_END } from "./world-constants";
 import { createCarModel, type Wheel } from "./car-model";
 
 export interface CarInput { throttle: number; brake: number; steer: number; handbrake: boolean; }
@@ -30,7 +31,7 @@ export class Car {
   get speedMph(): number { return Math.abs(this.speed) * 2.236936; }
   update(dt: number, input: CarInput, controlEnabled: boolean): void {
     if (controlEnabled && !this.crashed) {
-      if (input.throttle > 0) { const headroom = Math.max(0, 1 - this.speed / MAX_SPEED); this.speed += input.throttle * 13 * headroom * dt; }
+      if (input.throttle > 0) { const headroom = Math.max(0, 1 - this.speed / MAX_SPEED); this.speed += input.throttle * 5.2 * headroom * dt; }
       else this.speed -= this.speed * (0.42 + Math.abs(this.speed) * 0.05) * dt;
       if (input.brake > 0) this.speed -= input.brake * (this.speed > 0 ? 18 : 0) * dt;
       if (input.handbrake) this.speed -= Math.sign(this.speed) * Math.min(Math.abs(this.speed), 9 * dt);
@@ -41,7 +42,7 @@ export class Car {
     } else { this.speed *= Math.max(0, 1 - dt * 0.55); this.steer *= Math.max(0, 1 - dt * 3); }
     if (Math.abs(this.root.position.x) > 5.2) this.speed -= this.speed * 0.7 * dt;
     const fwd = this.forward; this.root.position.x = Math.max(-38, Math.min(38, this.root.position.x + fwd.x * this.speed * dt));
-    this.root.position.z = Math.max(-50, Math.min(340, this.root.position.z + fwd.z * this.speed * dt));
+    this.root.position.z = Math.max(-50, Math.min(ROAD_Z_END, this.root.position.z + fwd.z * this.speed * dt));
     const t = performance.now() * 0.001, bob = Math.sin(t * 9 + this.wheelSpin * 0.15) * 0.004 * Math.min(1, Math.abs(this.speed) / 8);
     this.root.position.y = CAR_ROOT_Y + bob;
     this.root.rotation.set(-this.steer * Math.min(1, Math.abs(this.speed) / MAX_SPEED) * 0.028 + Math.sin(t * 6.3) * 0.002, this.yaw, this.steer * Math.min(1, Math.abs(this.speed) / MAX_SPEED) * 0.035, "YXZ");

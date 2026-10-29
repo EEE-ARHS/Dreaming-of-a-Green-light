@@ -327,6 +327,8 @@ function render(now: number, delta: number) {
     feedCaptions(realDt, state);
     captionTimer = state.captionTimer;
   }
+  const carSpeedRatio = shell === "playing" && lastDef?.scene !== "west-egg" && cameraMotionEnabled ? Math.min(car?.speedMph ?? 0, 100) / 100 : 0;
+  postProcessing?.setMotionBlur(carSpeedRatio);
   postProcessing?.render(realDt);
 }
 

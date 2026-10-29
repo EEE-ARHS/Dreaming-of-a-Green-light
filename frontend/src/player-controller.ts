@@ -41,6 +41,7 @@ export class PlayerController {
   private hips!: Mesh;
   private readonly legs: Mesh[] = [];
   private readonly feet: Mesh[] = [];
+  private waving = false;
 
   constructor(private readonly scene: Scene, private readonly physics: HavokPhysics) {
     this.capsuleMesh = new Mesh(new CapsuleGeometry(0.32, 0.8, 4, 10), new MeshStandardMaterial({ visible: false }));
@@ -132,6 +133,16 @@ export class PlayerController {
       display.position.copy(worldPosition);
       display.quaternion.copy(this.avatarRoot.quaternion.clone().invert().multiply(worldRotation));
     }
+    if (this.waving) {
+      const upper = this.avatarArmMeshes[2];
+      const fore = this.avatarArmMeshes[3];
+      if (upper && fore) {
+        upper.position.set(0.2, 1.42, -0.02);
+        upper.rotation.set(0, 0, -0.82);
+        fore.position.set(0.39 + Math.sin(performance.now() * 0.012) * 0.035, 1.66, -0.04);
+        fore.rotation.set(0, 0, 0.42 + Math.sin(performance.now() * 0.012) * 0.22);
+      }
+    }
   }
 
   private shoulder(side: -1 | 1): Vector3 {
@@ -170,6 +181,10 @@ export class PlayerController {
   setAvatarVisible(visible: boolean): void {
     this.avatarRoot.visible = visible;
     for (const arm of this.arms) arm.mesh.visible = false;
+  }
+
+  setWaving(waving: boolean): void {
+    this.waving = waving;
   }
 
   updatePresentation(): void {
@@ -226,9 +241,9 @@ export class PlayerController {
     this.position.set(position.x, position.y - 0.72, position.z);
   }
 
-  setCutscenePosition(position: Vector3, yaw = this.yaw): void {
+  setCutscenePosition(position: Vector3, yaw = this.yaw, seated = true): void {
     this.inCutscene = true;
-    this.setSeatedPose(true);
+    this.setSeatedPose(seated);
     this.capsule.body.setMotionType(PhysicsMotionType.ANIMATED);
     for (const arm of this.arms) arm.aggregate.body.setMotionType(PhysicsMotionType.ANIMATED);
     this.position.copy(position);
