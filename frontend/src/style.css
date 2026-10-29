@@ -27,7 +27,7 @@ body { user-select: none; }
 #vignette, #grain, #flash { position: fixed; inset: 0; pointer-events: none; }
 #vignette { background: radial-gradient(ellipse at 50% 46%,transparent 30%,rgba(0,0,0,.4) 78%,rgba(0,0,0,.86) 100%); z-index: 4; }
 #grain { z-index: 5; opacity: .04; mix-blend-mode: screen; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E"); }
-#flash { z-index: 6; background: radial-gradient(circle at 50% 55%,rgba(255,238,214,.55),transparent 62%); opacity: 0; }
+#flash { z-index: 6; background: transparent; }
 #impactFlash { position: fixed; z-index: 7; inset: 8%; border: 1px solid rgba(242,223,167,.42); border-radius: 50%; box-shadow: inset 0 0 80px rgba(242,223,167,.12), 0 0 60px rgba(242,223,167,.12); opacity: 0; pointer-events: none; }
 #speedStreaks { position: fixed; z-index: 6; inset: 0; opacity: 0; pointer-events: none; background: repeating-linear-gradient(104deg,transparent 0 22px,rgba(175,220,255,.32) 23px,transparent 26px 54px); -webkit-mask-image: linear-gradient(90deg,#000 0%,#000 18%,transparent 36%,transparent 64%,#000 82%,#000 100%); mask-image: linear-gradient(90deg,#000 0%,#000 18%,transparent 36%,transparent 64%,#000 82%,#000 100%); mix-blend-mode: screen; transition: opacity .15s linear; }
 body.boats-fast #speedStreaks { opacity: calc(var(--boat-speed, 0) * .88); animation: boat-speed-streaks var(--boat-speed-duration, .72s) linear infinite alternate; }
@@ -38,6 +38,14 @@ body.boats-fast #speedStreaks { opacity: calc(var(--boat-speed, 0) * .88); anima
 #letterbox div:first-child { top: 0; } #letterbox div:last-child { bottom: 0; }
 
 #hud { position: fixed; inset: 0; z-index: 8; padding: clamp(14px,2.4vw,34px); display: flex; flex-direction: column; align-items: center; justify-content: space-between; pointer-events: none; opacity: 0; }
+/* Chapter XV: instruments sit at the bottom, leaving the top of the screen for the passage. */
+body.chapter15-active #hud { justify-content: flex-end; }
+body.chapter15-active #speedStreaks { display: none; }
+.chapter15-ending { display: flex; justify-content: center; pointer-events: none; transition: opacity .9s ease; transform: translateY(-50%); }
+.chapter15-ending-text { margin: 0; max-width: min(920px,82vw); text-align: center; font-family: var(--serif); font-size: clamp(18px,1.6vw,25px); line-height: 1.6; font-style: italic; color: var(--cream); text-shadow: 0 2px 20px rgba(0,0,0,.95); }
+.chapter15-final-line { font-style: normal; font-weight: 500; font-size: clamp(30px,3.6vw,58px); line-height: 1.35; letter-spacing: .01em; color: #9dffc2; text-shadow: 0 0 6px rgba(157,255,194,.95), 0 0 18px rgba(157,255,194,.8), 0 0 42px rgba(157,255,194,.55), 0 0 90px rgba(157,255,194,.32); }
+.chapter15-final-dot { width: 10px; height: 10px; border-radius: 50%; background: #b6ffd2; box-shadow: 0 0 8px 2px rgba(182,255,210,.9), 0 0 22px 8px rgba(157,255,194,.45); opacity: 0; transition: opacity 1.6s ease; }
+.chapter15-final-glow { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity 4s ease; background: radial-gradient(circle at 50% 56%, rgba(70,255,146,.14), rgba(70,255,146,.05) 32%, rgba(70,255,146,.015) 55%, transparent 72%); }
 #topbar { display: flex; justify-content: center; align-items: center; gap: 20px; }
 .brand { display: flex; flex-direction: column; gap: 5px; padding-left: 0; border-left: none; }
 .brand-title { font-family: var(--serif); font-weight: 600; font-size: clamp(13px,1.25vw,17px); letter-spacing: .28em; color: var(--gold-light); }

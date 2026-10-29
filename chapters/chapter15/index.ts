@@ -22,7 +22,7 @@ export const blurb = manifest.blurb;
 export const command = manifest.command;
 export const how = manifest.how;
 
-type Phase = "sailing" | "ending";
+type Phase = "sailing" | "ending" | "cinematic";
 
 interface LightSnapshot {
   light: THREE.Light;
@@ -60,11 +60,31 @@ export class BoatsAgainstTheCurrentChapter implements Chapter {
   private shore: Shore | null = null;
   private rig: LuxuryYachtRig | null = null;
   private splash: SplashField | null = null;
-  private glow: THREE.CanvasTexture | null = null;
-  private snapshot: SceneSnapshot | null = null;
-  private counter: HTMLElement | null = null;
-
+  private glow: THREE.CanvasTexture | null = null;private snapshot: SceneSnapshot | null = null;
+private counter: HTMLElement | null = null;
+  private endingOverlay: HTMLDivElement | null = null;
+  private endingText: HTMLParagraphElement | null = null;
+  // Final blackout and closing line
+  private blackout: HTMLDivElement | null = null;
+  private finalLine: HTMLParagraphElement | null = null;
+  private finalDot: HTMLSpanElement | null = null;
+  private finalGlow: HTMLDivElement | null = null;
+  private cinematicElapsed = 0;
+  private finalLineStarted = false;
+  private finalTyped = 0;
+  /** When the closing line finished typing; -1 until it does. */
+  private finalTextDoneAt = -1;
+  // Text display system
+  private textTriggered = false;
+  private textLineIndex = 0;
+  /** Characters typed so far on the current line (fractional between frames). */
+  private textTyped = 0;
+  /** Seconds left of the pause after a finished line. */
+  private textPause = 0;
+  private textFinished = false;
+  private textLines: string[] = [];
   private boat: BoatState = createBoat();
+
   private tracker: ProgressTracker = createProgressTracker(SEA.lightZ);
   private lightZ = SEA.lightZ;
   private phase: Phase = "sailing";
@@ -143,6 +163,48 @@ export class BoatsAgainstTheCurrentChapter implements Chapter {
     this.counter = crateCounter;
     this.counter?.classList.add("show");
     this.updateCounter();
+    // Create ending overlay and text elements, positioned below the counter
+    this.endingOverlay = document.createElement("div");
+    this.endingOverlay.className = "chapter15-ending";
+    this.endingOverlay.style.position = "absolute";
+    this.endingOverlay.style.top = "42%"; /* slightly above the middle of the screen */
+    this.endingOverlay.style.left = "0px";
+    this.endingOverlay.style.width = "100%";
+    this.endingOverlay.style.marginTop = "0";
+    dom.hud.appendChild(this.endingOverlay);
+    this.endingText = document.createElement("p");
+    this.endingText.className = "chapter15-ending-text";
+    this.endingOverlay.appendChild(this.endingText);
+    // Full-screen black used for the final cut, with the closing line over it.
+    this.blackout = document.createElement("div");
+    this.blackout.className = "chapter15-blackout";
+    this.blackout.style.cssText = "position:fixed;inset:0;z-index:30;background:#000;opacity:0;pointer-events:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(20px,2.6vw,38px);padding:0 8vw;";
+    this.finalGlow = document.createElement("div");
+    this.finalGlow.className = "chapter15-final-glow";
+    this.finalGlow.style.opacity = "0";
+    this.blackout.appendChild(this.finalGlow);
+    this.finalLine = document.createElement("p");
+    this.finalLine.className = "chapter15-ending-text chapter15-final-line";
+    this.finalLine.textContent = "";
+    this.blackout.appendChild(this.finalLine);
+    this.finalDot = document.createElement("span");
+    this.finalDot.className = "chapter15-final-dot";
+    this.finalDot.style.opacity = "0";
+    this.blackout.appendChild(this.finalDot);
+    document.body.appendChild(this.blackout);
+    this.cinematicElapsed = 0;
+    this.finalLineStarted = false;
+    this.finalTyped = 0;
+    this.finalTextDoneAt = -1;
+    this.textTriggered = false;
+    this.textLines = [];
+    this.textLineIndex = 0;
+    this.textTyped = 0;
+    this.textPause = 0;
+    this.textFinished = false;
+    this.endingOverlay.style.opacity = "0";
+    this.endingText.textContent = "";
+    document.body.classList.add("chapter15-active");
     dom.hud.classList.add("live");
     dom.letterbox.classList.remove("on");
     // Keep shared car audio muted; this chapter uses its own quiet motor yacht.
@@ -162,7 +224,9 @@ export class BoatsAgainstTheCurrentChapter implements Chapter {
 
     this.poseRig();
     if (this.phase === "sailing") this.updateSailing(dt);
-    else this.updateEnding(dt);
+    else if (this.phase === "ending") this.updateEnding(dt);
+    else this.updateCinematic(dt);
+    if (this.phase !== "cinematic") this.updateText(dt);
     this.updateSpeedometer();
 
     ocean.update(this.time, this.boat.x, this.boat.z);
@@ -199,6 +263,15 @@ export class BoatsAgainstTheCurrentChapter implements Chapter {
   dispose(): void {
 
     document.body.classList.remove("boats-fast");
+    document.body.classList.remove("chapter15-active");
+    this.endingOverlay?.remove();
+    this.endingOverlay = null;
+    this.endingText = null;
+    this.blackout?.remove();
+    this.blackout = null;
+    this.finalLine = null;
+    this.finalDot = null;
+    this.finalGlow = null;
     document.body.style.removeProperty("--boat-speed");
     document.body.style.removeProperty("--boat-speed-drift");
     document.body.style.removeProperty("--boat-speed-duration");
@@ -253,7 +326,100 @@ export class BoatsAgainstTheCurrentChapter implements Chapter {
 
     this.spawnWake(dt);
     this.updateBeats(distance);
+
+    // Start the passage once the boat is 2.4 miles from the green light.
+    const currentDistance = distanceToLight(this.boat, this.lightZ);
+    const textTriggerDistance = 2.4 * 1609.344;
+    if (!this.textTriggered && currentDistance <= textTriggerDistance) {
+      this.textTriggered = true;
+      this.textLines = [
+        "And as I sat there brooding on the old, unknown world, I thought of Gatsby's wonder when he first picked out the green light at the end of Daisy's dock.",
+        "He had come a long way to this blue lawn and his dream must have seemed so close that he could hardly fail to grasp it.",
+        "He did not know that it was already behind him, somewhere back in that vast obscurity beyond the city, where the dark fields of the republic rolled on under the night.",
+        "Gatsby believed in the green light, the orgastic future that year by year recedes before us.",
+        "It eluded us then, but that's no matter — tomorrow we will run fast, stretch out our arms farther...",
+        "And one fine morning —",
+      ];
+      this.textLineIndex = 0;
+      this.textTyped = 0;
+      this.textPause = 0;
+      this.textFinished = false;
+      if (this.endingOverlay) this.endingOverlay.style.opacity = "1";
+    }
     if (updateProgress(this.tracker, distance)) this.beginEnding();
+    if (currentDistance <= 200) this.beginCinematic();
+  }
+
+  /** At two hundred metres the picture cuts to black; the last line arrives after a beat. */
+  private beginCinematic(): void {
+    if (this.phase === "cinematic") return;
+    this.phase = "cinematic";
+    this.cinematicElapsed = 0;
+    this.finalLineStarted = false;
+    this.finalTyped = 0;
+    this.finalTextDoneAt = -1;
+    this.thrust = 0;
+    this.boat.vx = 0;
+    this.boat.vz = 0;
+    this.boat.yawRate = 0;
+    this.ctx.dom.subtitle.classList.remove("show");
+    this.ctx.dom.subtitle.textContent = "";
+    if (this.endingOverlay) this.endingOverlay.style.opacity = "0";
+    if (this.counter) this.counter.textContent = "";
+    if (this.blackout) this.blackout.style.opacity = "1";
+    if (this.finalLine) this.finalLine.textContent = "";
+    if (this.finalDot) this.finalDot.style.opacity = "0";
+    if (this.finalGlow) this.finalGlow.style.opacity = "0";
+  }
+
+  private updateCinematic(dt: number): void {
+    this.cinematicElapsed += dt;
+    if (this.cinematicElapsed < 5) return;
+    const line = "So we beat on, boats against the current, borne back ceaselessly into the past.";
+    if (!this.finalLineStarted) {
+      this.finalLineStarted = true;
+      this.finalTyped = 0;
+    }
+    if (this.finalTyped < line.length) {
+      this.finalTyped = Math.min(line.length, this.finalTyped + dt * 14);
+      if (this.finalLine) this.finalLine.textContent = line.slice(0, Math.floor(this.finalTyped));
+      if (this.finalTyped >= line.length) this.finalTextDoneAt = this.cinematicElapsed;
+      return;
+    }
+    // Five seconds after the line is fully on screen, a small green light
+    // fades in beneath it.
+    if (this.finalTextDoneAt >= 0 && this.cinematicElapsed - this.finalTextDoneAt >= 5) {
+      if (this.finalDot) this.finalDot.style.opacity = "1";
+      // With the dot, a faint green bloom rises out of the black.
+      if (this.finalGlow) this.finalGlow.style.opacity = "1";
+    }
+  }
+
+  /**
+   * Types the passage one line at a time, slowly, with a five second hold
+   * between lines. Runs independently of the sailing phase so the closing
+   * lines still arrive after the boat has reached the light.
+   */
+  private updateText(dt: number): void {
+    if (!this.textTriggered || this.textFinished) return;
+    if (this.textPause > 0) {
+      this.textPause -= dt;
+      if (this.textPause > 0) return;
+      this.textLineIndex += 1;
+      this.textTyped = 0;
+      if (this.textLineIndex >= this.textLines.length) {
+        this.textFinished = true;
+        return;
+      }
+    }
+    const line = this.textLines[this.textLineIndex];
+    if (line === undefined) {
+      this.textFinished = true;
+      return;
+    }
+    this.textTyped = Math.min(line.length, this.textTyped + dt * 18);
+    if (this.endingText) this.endingText.textContent = line.slice(0, Math.floor(this.textTyped));
+    if (this.textTyped >= line.length) this.textPause = 5;
   }
 
   private updateSpeedometer(): void {
