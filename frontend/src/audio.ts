@@ -10,6 +10,8 @@ export class GameAudio {
   private engineFilter: BiquadFilterNode | null = null;
   private windGain: GainNode | null = null;
   private started = false;
+  private startPromise: Promise<void> | null = null;
+  private readonly pendingCues: { play: () => void; expiresAt: number }[] = [];
   private muted = false;
 
   get isStarted(): boolean {
@@ -21,6 +23,16 @@ export class GameAudio {
       await this.ctx?.resume();
       return;
     }
+    if (this.startPromise) return this.startPromise;
+    this.startPromise = this.initialize();
+    try {
+      await this.startPromise;
+    } finally {
+      this.startPromise = null;
+    }
+  }
+
+  private async initialize(): Promise<void> {
     const Ctor = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     if (!Ctor) return;
     const ctx = new Ctor();
@@ -76,6 +88,10 @@ export class GameAudio {
     this.windGain = windGain;
 
     this.started = true;
+    const now = Date.now();
+    for (const cue of this.pendingCues.splice(0)) {
+      if (cue.expiresAt >= now) cue.play();
+    }
   }
 
   private noiseBuffer(ctx: AudioContext, seconds: number, smoothing: number): AudioBuffer {
@@ -151,6 +167,98 @@ export class GameAudio {
     ring.stop(now + 6);
   }
 
+  playPartyIntro(): void {
+    if (this.deferCue(() => this.playPartyIntro(), 5000)) return;
+    const now = this.ctx?.currentTime ?? 0;
+    for (const [frequency, delay, volume] of [[523.25, 0, 0.023], [659.25, 0.12, 0.021], [783.99, 0.24, 0.019], [987.77, 0.4, 0.024]] as const) {
+      this.playTone(frequency, now + delay, 0.72, volume, "triangle");
+    }
+  }
+
+  playPartyChime(): void {
+    if (this.deferCue(() => this.playPartyChime(), 1500)) return;
+    const now = this.ctx?.currentTime ?? 0;
+    this.playTone(880, now, 0.38, 0.018, "sine");
+    this.playTone(1318.51, now + 0.055, 0.31, 0.012, "sine");
+  }
+
+  playPartyTransition(): void {
+    if (this.deferCue(() => this.playPartyTransition(), 1500)) return;
+    const now = this.ctx?.currentTime ?? 0;
+    for (const [frequency, delay] of [[392, 0], [493.88, 0.16], [587.33, 0.32]] as const) {
+      this.playTone(frequency, now + delay, 1.15, 0.017, "triangle");
+    }
+  }
+
+  playGuestShove(): void {
+    if (this.deferCue(() => this.playGuestShove(), 700)) return;
+    this.playNoiseBurst(0.16, 0.045, 620);
+  }
+
+  playGuestThrow(): void {
+    if (this.deferCue(() => this.playGuestThrow(), 900)) return;
+    this.playNoiseBurst(0.24, 0.035, 880);
+  }
+
+  playPorchReveal(): void {
+    if (this.deferCue(() => this.playPorchReveal(), 1800)) return;
+    const now = this.ctx?.currentTime ?? 0;
+    for (const [frequency, delay] of [[349.23, 0], [440, 0.18], [523.25, 0.36]] as const) {
+      this.playTone(frequency, now + delay, 1.45, 0.019, "sine");
+    }
+  }
+
+  playFarewell(): void {
+    if (this.deferCue(() => this.playFarewell(), 1200)) return;
+    const now = this.ctx?.currentTime ?? 0;
+    this.playTone(659.25, now, 0.52, 0.018, "sine");
+    this.playTone(523.25, now + 0.16, 0.72, 0.016, "sine");
+  }
+
+  private deferCue(play: () => void, lifetimeMs: number): boolean {
+    if (this.started) return false;
+    this.pendingCues.push({ play, expiresAt: Date.now() + lifetimeMs });
+    return true;
+  }
+
+  private playTone(frequency: number, startAt: number, duration: number, volume: number, type: OscillatorType): void {
+    const ctx = this.ctx;
+    const master = this.master;
+    if (!ctx || !master || ctx.state === "closed") return;
+    const oscillator = ctx.createOscillator();
+    const envelope = ctx.createGain();
+    oscillator.type = type;
+    oscillator.frequency.setValueAtTime(frequency, startAt);
+    envelope.gain.setValueAtTime(0.0001, startAt);
+    envelope.gain.linearRampToValueAtTime(volume, startAt + 0.018);
+    envelope.gain.exponentialRampToValueAtTime(0.0001, startAt + duration);
+    oscillator.connect(envelope);
+    envelope.connect(master);
+    oscillator.start(startAt);
+    oscillator.stop(startAt + duration + 0.03);
+  }
+
+  private playNoiseBurst(duration: number, volume: number, frequency: number): void {
+    const ctx = this.ctx;
+    const master = this.master;
+    if (!ctx || !master || ctx.state === "closed") return;
+    const now = ctx.currentTime;
+    const source = ctx.createBufferSource();
+    source.buffer = this.noiseBuffer(ctx, duration, 0.18);
+    const filter = ctx.createBiquadFilter();
+    filter.type = "bandpass";
+    filter.frequency.value = frequency;
+    filter.Q.value = 0.72;
+    const envelope = ctx.createGain();
+    envelope.gain.setValueAtTime(volume, now);
+    envelope.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+    source.connect(filter);
+    filter.connect(envelope);
+    envelope.connect(master);
+    source.start(now);
+    source.stop(now + duration);
+  }
+
   setMuted(muted: boolean): void {
     this.muted = muted;
     if (this.master && this.ctx) {
@@ -178,6 +286,7 @@ export class GameAudio {
     this.engineSub = null;
     this.engineFilter = null;
     this.windGain = null;
+    this.pendingCues.length = 0;
     this.started = false;
   }
 }

@@ -80,8 +80,7 @@ export const CHAPTER_CATALOG: ChapterCatalogEntry[] = [
       keys: [
         { key: "WASD / ARROWS", label: "step through crowd" },
         { key: "MOUSE", label: "look" },
-        { key: "F", label: "push nearby guest" },
-        { key: "HOLD + DRAG", label: "aim and throw a guest" },
+        { key: "HOLD + DRAG", label: "drag and throw a guest" },
         { key: "ESC", label: "chapters" },
       ],
     },

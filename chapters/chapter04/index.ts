@@ -1,9 +1,11 @@
 import * as THREE from "three";
 import type { Chapter, ChapterContext, ChapterFlavor, ChapterOutcome } from "../../frontend/src/chapters/types";
 import { PhysicsAggregate, PhysicsConstraint, PhysicsShapeType } from "../../frontend/src/physics";
+import { PlayerController } from "../../frontend/src/player-controller";
 import { disposeObjectTree } from "../../frontend/src/scene-resources";
 import { crateCounter } from "../../frontend/src/ui";
 import manifest from "./assets/manifest.json";
+import gatsbyPhotoUrl from "./assets/gatsby-redford.jpg";
 
 export const id = manifest.id;
 export const name = manifest.name;
@@ -21,6 +23,8 @@ interface BodyPart {
 
 interface Guest {
   root: THREE.Group;
+  collisionProxy: THREE.Mesh;
+  collisionAggregate: PhysicsAggregate;
   parts: BodyPart[];
   joints: PhysicsConstraint[];
   torso: BodyPart;
@@ -45,9 +49,10 @@ interface AmbientGuest {
   gesture: number;
 }
 
-const GUEST_COUNT = 9;
-// Redford as Gatsby, pictured in the Independent article supplied by the player.
-const GATSBY_FACE_URL = new URL("./assets/gatsby-redford.jpg", import.meta.url).href;
+const GUEST_COUNT = 21;
+const WORLD_COLLISION_MASK = 1;
+const PLAYER_COLLISION_MASK = 2;
+const GUEST_COLLISION_MASK = 4;
 const PALETTE = ["#d0aa58", "#783c52", "#426b69", "#5d4b76", "#a76b3a", "#9c3653"];
 
 /** Chapter IV — clear Gatsby's party guests from the aisle to find their host. */
@@ -67,10 +72,9 @@ export class CrowdAtGatsbysChapter implements Chapter {
   private readonly staticBodies: PhysicsAggregate[] = [];
   private readonly raycaster = new THREE.Raycaster();
   private readonly pointer = new THREE.Vector2();
-  private readonly dragStart = new THREE.Vector2();
-  private readonly dragPoint = new THREE.Vector3();
-  private readonly pullVelocity = new THREE.Vector3();
   private readonly centerScratch = new THREE.Vector3();
+  private readonly dragStart = new THREE.Vector2();
+  private readonly throwVelocity = new THREE.Vector3();
   private readonly angularScratch = new THREE.Vector3();
   private animationAccumulator = 0;
   private readonly savedCameraPosition = new THREE.Vector3();
@@ -85,11 +89,11 @@ export class CrowdAtGatsbysChapter implements Chapter {
   private openingBeat = 0;
   private readonly host = new THREE.Group();
   private readonly openingJordan = new THREE.Group();
-  private readonly faceMaterial = new THREE.MeshBasicMaterial({ color: "#d1aa88" });
-  private readonly faceCanvas = document.createElement("canvas");
-  private readonly faceTexture = new THREE.CanvasTexture(this.faceCanvas);
-  private readonly faceImage = new Image();
   private faceReveal: THREE.Mesh | null = null;
+  private gatsbyPhotoRequest = 0;
+  private gatsbyPhotoTexture: THREE.Texture | null = null;
+  private gatsbyPhotoLoaded = false;
+  private endingRevealProgress = 0;
   private remainingGuests = GUEST_COUNT;
   private dragging: Guest | null = null;
   private pointerDown = false;
@@ -97,10 +101,7 @@ export class CrowdAtGatsbysChapter implements Chapter {
   private pitch = 0;
   private cameraFocus = new THREE.Vector3();
   private readonly playerPosition = new THREE.Vector3(0, 0, -13.2);
-  private readonly movementScratch = new THREE.Vector3();
-  private readonly candidatePosition = new THREE.Vector3();
-  private readonly pushDirection = new THREE.Vector3();
-  private pushWasDown = false;
+  private player: PlayerController | null = null;
 
   constructor(ctx: ChapterContext) {
     this.ctx = ctx;
@@ -123,7 +124,6 @@ export class CrowdAtGatsbysChapter implements Chapter {
     this.remainingGuests = GUEST_COUNT;
     this.dragging = null;
     this.pointerDown = false;
-    this.pushWasDown = false;
     this.yaw = Math.PI;
     this.pitch = 0;
     this.playerPosition.set(0, 0, -13.2);
@@ -133,8 +133,12 @@ export class CrowdAtGatsbysChapter implements Chapter {
     scene.background = new THREE.Color("#120c15");
     scene.fog = new THREE.Fog("#1b101b", 11, 48);
     this.buildRoom();
+    this.player = new PlayerController(scene, this.requirePhysics());
+    this.player.setAvatarVisible(false);
+    this.player.resumeWalking(this.playerPosition, this.yaw);
     this.buildBackdropCrowd();
-    for (let index = 0; index < GUEST_COUNT; index++) this.guests.push(this.createGuest(index));
+    const guestPositions = this.createGuestPositions();
+    for (let index = 0; index < GUEST_COUNT; index++) this.guests.push(this.createGuest(index, guestPositions[index]!));
     this.group.traverse((object) => {
       if (object instanceof THREE.Mesh) {
         object.castShadow = false;
@@ -153,44 +157,46 @@ export class CrowdAtGatsbysChapter implements Chapter {
     crateCounter.textContent = `GUESTS ${GUEST_COUNT} / ${GUEST_COUNT} · CLEAR THE AISLE`;
     this.ctx.dom.hud.classList.add("live");
     this.ctx.dom.letterbox.classList.remove("on");
-    this.ctx.say("Jordan: You’re a bad driver, Nick.", 2.2, true);
+    this.ctx.say("“You said a bad driver was only safe until she met another bad driver?”", 2.2, true);
+    this.ctx.audio.playPartyIntro();
     this.animateBackdropCrowd(0);
   }
 
   update(dt: number): void {
     const step = Math.min(dt, 1 / 30);
-    this.animationAccumulator += step;
+    this.animationAccumulator += dt;
     if (this.animationAccumulator >= 1 / 30) {
-      const animationStep = this.animationAccumulator;
+      const animationStep = Math.min(this.animationAccumulator, 0.1);
       this.animationAccumulator = 0;
       this.animateBackdropCrowd(animationStep);
       this.animateIdleGuests(animationStep);
     }
 
     if (this.phase === "opening") {
-      this.openingElapsed += step;
-      if (this.openingBeat === 0 && this.openingElapsed >= 2.2) {
-        this.ctx.say("Nick: I’m careful.", 1.9, true);
-        this.openingBeat = 1;
-      } else if (this.openingBeat === 1 && this.openingElapsed >= 4.25) {
-        this.ctx.say("Jordan: No, you’re not. Let’s find Gatsby.", 2.4, true);
-        this.openingBeat = 2;
-      } else if (this.openingBeat === 2 && this.openingElapsed >= 6.8) {
-        this.ctx.say("You are Nick, lost among Gatsby's guests. Walk forward, find your way through, and drag a guest aside when the crowd blocks you.", 5.2, true);
-        this.openingBeat = 3;
-        this.cameraFocus.set(0, 1.2, 0);
-        this.openingJordan.visible = false;
-        this.phase = "playing";
+      this.openingElapsed += dt;
+      while (this.openingBeat < 3 && this.openingElapsed >= [2.2, 4.25, 6.8][this.openingBeat]!) {
+        if (this.openingBeat === 0) {
+          this.ctx.say("“I am careful.”", 1.9, true);
+          this.ctx.audio.playPartyChime();
+        } else if (this.openingBeat === 1) {
+          this.ctx.say("“No, you’re not.”", 2.4, true);
+          this.ctx.audio.playPartyChime();
+        } else {
+          this.ctx.say("“In his blue gardens men and girls came and went like moths among the whisperings and the champagne and the stars.”", 5.2, true);
+          this.ctx.audio.playPartyTransition();
+          this.cameraFocus.set(0, 1.2, 0);
+          this.openingJordan.visible = false;
+          this.phase = "playing";
+        }
+        this.openingBeat++;
       }
       this.placeCamera(false);
     } else if (this.phase === "playing") {
       this.moveNick(step);
-      const pushDown = this.ctx.keys.has("f");
-      if (pushDown && !this.pushWasDown) this.pushNearbyGuest();
-      this.pushWasDown = pushDown;
-      if (this.dragging) this.pullGuest(this.dragging);
       for (const guest of this.guests) {
         if (guest.cleared || !guest.thrown) continue;
+        guest.collisionProxy.visible = false;
+        this.setGuestCollision(guest, false);
         const center = this.guestCenter(guest, this.centerScratch);
         if (Math.abs(center.x) > 2.85 || center.z > 19 || center.y < -2) {
           guest.cleared = true;
@@ -203,11 +209,12 @@ export class CrowdAtGatsbysChapter implements Chapter {
       if (this.remainingGuests === 0) {
         this.phase = "ending";
         this.endElapsed = 0;
-        this.ctx.say("The aisle is clear. Gatsby waits beneath the green light.", 4.5, true);
+        this.ctx.say("“I was within and without, simultaneously enchanted and repelled by the inexhaustible variety of life.”", 4.5, true);
+        this.ctx.audio.playPartyTransition();
       }
       this.placeCamera(false);
     } else if (this.phase === "ending") {
-      this.endElapsed += step;
+      this.endElapsed += dt;
       this.placeCamera(false);
       if (this.endElapsed > 3.2) this.result = "win";
     }
@@ -252,15 +259,20 @@ export class CrowdAtGatsbysChapter implements Chapter {
   }
 
   private disposeScene(): void {
-    this.faceImage.onload = null;
+    this.player?.dispose();
+    this.player = null;
     this.faceReveal = null;
-    this.faceMaterial.map = null;
-    this.faceCanvas.width = 512;
-    this.faceCanvas.height = 512;
-    this.faceTexture.image = this.faceCanvas;
-    this.faceTexture.needsUpdate = true;
+    this.gatsbyPhotoRequest++;
+    this.gatsbyPhotoTexture?.dispose();
+    this.gatsbyPhotoTexture = null;
+    this.gatsbyPhotoLoaded = false;
+    this.endingRevealProgress = 0;
     for (const guest of this.guests.splice(0)) {
       this.disposeGuestPhysics(guest);
+      guest.collisionAggregate.dispose();
+      guest.collisionProxy.removeFromParent();
+      guest.collisionProxy.geometry.dispose();
+      (guest.collisionProxy.material as THREE.Material).dispose();
       guest.root.removeFromParent();
       disposeObjectTree(guest.root);
     }
@@ -299,8 +311,8 @@ export class CrowdAtGatsbysChapter implements Chapter {
     };
     addBox("physics:ballroom-floor", new THREE.Vector3(15, 0.5, 44), new THREE.Vector3(0, -0.25, 5), floorMat);
     addBox("physics:ballroom-back-wall", new THREE.Vector3(15, 8, 0.5), new THREE.Vector3(0, 4, -17), wallMat);
-    addBox("ballroom-left-wall", new THREE.Vector3(0.35, 8, 40), new THREE.Vector3(-7.3, 4, 4), wallMat);
-    addBox("ballroom-right-wall", new THREE.Vector3(0.35, 8, 40), new THREE.Vector3(7.3, 4, 4), wallMat);
+    addBox("physics:ballroom-left-wall", new THREE.Vector3(0.35, 8, 40), new THREE.Vector3(-7.3, 4, 4), wallMat);
+    addBox("physics:ballroom-right-wall", new THREE.Vector3(0.35, 8, 40), new THREE.Vector3(7.3, 4, 4), wallMat);
     this.addRoomFinishing(trimMat);
     this.buildOpeningJordan();
     this.addPartyProps();
@@ -309,33 +321,43 @@ export class CrowdAtGatsbysChapter implements Chapter {
       addBox(`physics:balcony-${z}`, new THREE.Vector3(0.17, 2.1, 0.2), new THREE.Vector3(-5.9, 3.1, z), trimMat);
       addBox(`physics:balcony-right-${z}`, new THREE.Vector3(0.17, 2.1, 0.2), new THREE.Vector3(5.9, 3.1, z), trimMat);
     }
+    for (const z of [-12, -4, 4, 12, 19]) {
+      const table = new THREE.Vector3(Math.sign(z || 1) * 5.05, 0, z);
+      addBox(`physics:party-table-${z}`, new THREE.Vector3(1.75, 1.84, 1.75), table.clone().add(new THREE.Vector3(0, 0.92, 0)), wallMat);
+    }
     const rug = new THREE.Mesh(new THREE.BoxGeometry(4.5, 0.025, 33), new THREE.MeshStandardMaterial({ color: "#633746", roughness: 0.65, metalness: 0.12 }));
     rug.position.set(0, 0.015, 3);
     this.group.add(rug);
     this.host.name = "gatsby-at-the-green-light";
     this.host.position.set(0, 0, 24);
-    this.host.rotation.y = Math.PI;
+    this.host.rotation.y = 0;
     this.group.add(this.host);
-    const suit = new THREE.MeshStandardMaterial({ color: "#d6ccae", roughness: 0.46, metalness: 0.18 });
-    const silhouette = new THREE.Mesh(new THREE.CapsuleGeometry(0.26, 0.58, 5, 12), suit);
-    silhouette.position.y = 1.03;
-    this.host.add(silhouette);
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.16, 14, 12), this.faceMaterial);
-    head.position.y = 1.58;
-    this.host.add(head);
-    this.faceReveal = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.28), new THREE.MeshBasicMaterial({ map: this.faceTexture, transparent: true, side: THREE.DoubleSide, depthWrite: false }));
-    this.faceReveal.name = "gatsby-independent-photo-reveal";
-    this.faceReveal.position.set(0, 1.58, -0.17);
+    const frame = new THREE.Mesh(
+      new THREE.BoxGeometry(1.72, 1.34, 0.075),
+      new THREE.MeshStandardMaterial({ color: "#b88747", metalness: 0.72, roughness: 0.28, emissive: "#493115", emissiveIntensity: 0.24 }),
+    );
+    frame.name = "gatsby-redford-photo-frame";
+    frame.position.set(0, 1.52, 0.035);
+    this.host.add(frame);
+    const photoRequest = ++this.gatsbyPhotoRequest;
+    this.gatsbyPhotoTexture = new THREE.TextureLoader().load(gatsbyPhotoUrl, () => {
+      if (photoRequest !== this.gatsbyPhotoRequest) return;
+      this.gatsbyPhotoLoaded = true;
+      if (this.faceReveal) this.faceReveal.visible = this.phase === "ending" && this.endingRevealProgress > 0.9;
+    }, undefined, (error) => {
+      if (photoRequest !== this.gatsbyPhotoRequest) return;
+      console.error("Unable to load Gatsby photo:", error);
+    });
+    this.gatsbyPhotoTexture.colorSpace = THREE.SRGBColorSpace;
+    this.faceReveal = new THREE.Mesh(
+      new THREE.PlaneGeometry(1.55, 1.03),
+      new THREE.MeshBasicMaterial({ map: this.gatsbyPhotoTexture, side: THREE.DoubleSide, toneMapped: false }),
+    );
+    this.faceReveal.name = "gatsby-redford-photo";
+    this.faceReveal.position.set(0, 1.52, 0.08);
+    this.faceReveal.rotation.y = Math.PI;
     this.faceReveal.visible = false;
     this.host.add(this.faceReveal);
-    this.faceCanvas.width = 512;
-    this.faceCanvas.height = 512;
-    this.faceTexture.colorSpace = THREE.SRGBColorSpace;
-    this.faceImage.crossOrigin = "anonymous";
-    this.faceImage.onload = () => {
-      this.drawGatsbyFace();
-    };
-    this.faceImage.src = GATSBY_FACE_URL;
 
     const halo = new THREE.Mesh(new THREE.SphereGeometry(0.4, 16, 12), new THREE.MeshBasicMaterial({ color: "#92e1a5", transparent: true, opacity: 0.19 }));
     halo.position.set(0, 1.35, 0.15);
@@ -634,12 +656,31 @@ export class CrowdAtGatsbysChapter implements Chapter {
     }
   }
 
-  private createGuest(index: number): Guest {
+  private createGuestPositions(): THREE.Vector3[] {
+    const positions: THREE.Vector3[] = [];
+    const rows = Math.ceil(GUEST_COUNT / 4);
+    for (let row = 0; row < rows; row++) {
+      const count = Math.min(4, GUEST_COUNT - positions.length);
+      const z = -10 + row * 4.45;
+      const lanes = Array.from({ length: 5 }, (_, index) => index - 2);
+      for (let index = lanes.length - 1; index > 0; index--) {
+        const swapIndex = Math.floor(Math.random() * (index + 1));
+        [lanes[index], lanes[swapIndex]] = [lanes[swapIndex]!, lanes[index]!];
+      }
+      for (const lane of lanes.slice(0, count)) {
+        positions.push(new THREE.Vector3(
+          THREE.MathUtils.clamp(lane * 1.24 + (Math.random() - 0.5) * 0.62, -2.5, 2.5),
+          0,
+          z + (Math.random() - 0.5) * 0.8,
+        ));
+      }
+    }
+    return positions;
+  }
+
+  private createGuest(index: number, base: THREE.Vector3): Guest {
     const root = new THREE.Group();
     root.name = `party-guest-${String(index + 1).padStart(2, "0")}`;
-    const column = index % 3;
-    const row = Math.floor(index / 3);
-    const base = new THREE.Vector3((column - 1) * 1.1, 0, -9 + row * 5.1);
     const yaw = (Math.random() - 0.5) * 0.35;
     root.position.copy(base);
     root.rotation.y = yaw;
@@ -688,7 +729,11 @@ export class CrowdAtGatsbysChapter implements Chapter {
         mesh,
         rest: new THREE.Vector3(def.pos[0], def.pos[1], def.pos[2]),
         createAggregate: () => {
-          const aggregate = new PhysicsAggregate(mesh, shape, options, this.requirePhysics());
+          const aggregate = new PhysicsAggregate(mesh, shape, {
+            ...options,
+            filterMembershipMask: GUEST_COLLISION_MASK,
+            filterCollideMask: WORLD_COLLISION_MASK | PLAYER_COLLISION_MASK | GUEST_COLLISION_MASK,
+          }, this.requirePhysics());
           aggregate.body.havokBody.setLinearDamping(1.2);
           aggregate.body.havokBody.setAngularDamping(2.8);
           return aggregate;
@@ -699,7 +744,22 @@ export class CrowdAtGatsbysChapter implements Chapter {
     }
     const torso = byName.get("torso")!;
     this.addGuestDetails(root, index, suit, skin, byName);
-    return { root, parts, joints: [], torso, grabbed: false, cleared: false, thrown: false, activated: false, base, baseYaw: yaw, phase: Math.random() * Math.PI * 2 };
+    const collisionProxy = new THREE.Mesh(new THREE.CapsuleGeometry(0.32, 0.92, 3, 8), new THREE.MeshBasicMaterial({ visible: false }));
+    collisionProxy.name = `${root.name}:character-collision`;
+    collisionProxy.position.copy(base).add(new THREE.Vector3(0, 0.72, 0));
+    collisionProxy.rotation.y = yaw;
+    this.group.add(collisionProxy);
+    const collisionAggregate = new PhysicsAggregate(collisionProxy, PhysicsShapeType.CAPSULE, {
+      mass: 0,
+      friction: 0.82,
+      restitution: 0,
+      radius: 0.32,
+      pointA: new THREE.Vector3(0, -0.46, 0),
+      pointB: new THREE.Vector3(0, 0.46, 0),
+      filterMembershipMask: GUEST_COLLISION_MASK,
+      filterCollideMask: WORLD_COLLISION_MASK | PLAYER_COLLISION_MASK | GUEST_COLLISION_MASK,
+    }, this.requirePhysics());
+    return { root, collisionProxy, collisionAggregate, parts, joints: [], torso, grabbed: false, cleared: false, thrown: false, activated: false, base, baseYaw: yaw, phase: Math.random() * Math.PI * 2 };
   }
 
   private addGuestDetails(root: THREE.Group, index: number, suit: THREE.MeshStandardMaterial, skin: THREE.MeshStandardMaterial, parts: Map<string, BodyPart>): void {
@@ -778,7 +838,8 @@ export class CrowdAtGatsbysChapter implements Chapter {
 
   private animateIdleGuests(dt: number): void {
     for (const guest of this.guests) {
-      if (guest.activated || guest.cleared) continue;
+      if (guest.activated || guest.cleared || guest.grabbed) continue;
+      guest.collisionProxy.position.copy(guest.base).add(new THREE.Vector3(0, 0.72, 0));
       guest.phase += dt * 1.8;
       const sway = Math.sin(guest.phase);
       guest.root.position.set(guest.base.x, Math.abs(Math.sin(guest.phase * 1.7)) * 0.018, guest.base.z);
@@ -799,6 +860,8 @@ export class CrowdAtGatsbysChapter implements Chapter {
     guest.activated = true;
     guest.root.position.set(guest.base.x, 0, guest.base.z);
     guest.root.rotation.set(0, guest.baseYaw, 0);
+    guest.collisionProxy.visible = false;
+    this.setGuestCollision(guest, false);
     for (const part of guest.parts) {
       part.mesh.position.copy(part.rest);
       part.mesh.rotation.set(0, 0, 0);
@@ -828,6 +891,13 @@ export class CrowdAtGatsbysChapter implements Chapter {
     link("pelvis", "legR", new THREE.Vector3(0.12, 0.81, 0), 0.72);
   }
 
+  private setGuestCollision(guest: Guest, enabled: boolean): void {
+    const shape = guest.collisionAggregate.body.havokBody.shape;
+    if (!shape) return;
+    shape.filterMembershipMask = enabled ? GUEST_COLLISION_MASK : 0;
+    shape.filterCollideMask = enabled ? WORLD_COLLISION_MASK | PLAYER_COLLISION_MASK | GUEST_COLLISION_MASK : 0;
+  }
+
   private disposeGuestPhysics(guest: Guest): void {
     for (const joint of guest.joints.splice(0)) joint.dispose();
     for (const part of guest.parts) {
@@ -836,71 +906,17 @@ export class CrowdAtGatsbysChapter implements Chapter {
     }
   }
 
-  private pullGuest(guest: Guest): void {
-    this.raycaster.setFromCamera(this.pointer, this.ctx.camera);
-    const direction = this.raycaster.ray.direction;
-    const center = this.guestCenter(guest, this.centerScratch);
-    const depth = Math.max(2, Math.min(13, center.dot(direction) - this.raycaster.ray.origin.dot(direction)));
-    this.dragPoint.copy(this.raycaster.ray.origin).addScaledVector(direction, depth);
-    this.dragPoint.x = THREE.MathUtils.clamp(this.dragPoint.x, -5.7, 5.7);
-    this.dragPoint.y = Math.max(1.2, this.dragPoint.y);
-    this.dragPoint.z = Math.min(18, this.dragPoint.z);
-    this.pullVelocity.copy(this.dragPoint).sub(center).multiplyScalar(10.5);
-    if (this.pullVelocity.length() > 14) this.pullVelocity.setLength(14);
-    for (const part of guest.parts) part.aggregate!.body.setLinearVelocity(this.pullVelocity);
-  }
-
   private moveNick(dt: number): void {
     const keys = this.ctx.keys;
+    this.yaw += (Number(keys.has("l")) - Number(keys.has("j"))) * 1.8 * dt;
+    this.pitch = THREE.MathUtils.clamp(this.pitch + (Number(keys.has("i")) - Number(keys.has("k"))) * 1.8 * dt, -0.95, 0.9);
     const forward = Number(keys.has("w") || keys.has("arrowup")) - Number(keys.has("s") || keys.has("arrowdown"));
     const strafe = Number(keys.has("d") || keys.has("arrowright")) - Number(keys.has("a") || keys.has("arrowleft"));
-    if (forward === 0 && strafe === 0) return;
-    this.movementScratch.set(-Math.sin(this.yaw) * forward + Math.cos(this.yaw) * strafe, 0, -Math.cos(this.yaw) * forward - Math.sin(this.yaw) * strafe).normalize().multiplyScalar(Math.min(dt, 1 / 30) * 1.8);
-    const canStandAt = (x: number, z: number): boolean => {
-      if (x < -6.45 || x > 6.45 || z < -15.7 || z > 17.2) return false;
-      for (const guest of this.guests) {
-        if (guest.cleared || guest.thrown) continue;
-        const dx = x - guest.root.position.x;
-        const dz = z - guest.root.position.z;
-        if (dx * dx + dz * dz < 0.62 * 0.62) return false;
-      }
-      return true;
-    };
-    this.candidatePosition.copy(this.playerPosition);
-    this.candidatePosition.x += this.movementScratch.x;
-    if (canStandAt(this.candidatePosition.x, this.candidatePosition.z)) this.playerPosition.x = this.candidatePosition.x;
-    this.candidatePosition.copy(this.playerPosition);
-    this.candidatePosition.z += this.movementScratch.z;
-    if (canStandAt(this.candidatePosition.x, this.candidatePosition.z)) this.playerPosition.z = this.candidatePosition.z;
-  }
-
-  private pushNearbyGuest(): void {
-    if (this.phase !== "playing" || this.dragging) return;
-    this.pushDirection.set(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
-    let candidate: Guest | null = null;
-    let nearest = 2.35;
-    for (const guest of this.guests) {
-      if (guest.cleared) continue;
-      this.guestCenter(guest, this.centerScratch);
-      const dx = this.centerScratch.x - this.playerPosition.x;
-      const dz = this.centerScratch.z - this.playerPosition.z;
-      const distance = Math.hypot(dx, dz);
-      if (distance >= nearest || distance < 0.001) continue;
-      const alignment = (dx * this.pushDirection.x + dz * this.pushDirection.z) / distance;
-      if (alignment < 0.35) continue;
-      candidate = guest;
-      nearest = distance;
-    }
-    if (!candidate) return;
-    this.activateRagdoll(candidate);
-    candidate.thrown = true;
-    const pushStrength = 5.5 + (2.35 - nearest) * 2;
-    this.pullVelocity.copy(this.pushDirection).multiplyScalar(pushStrength);
-    this.pullVelocity.y = 2.8;
-    for (const part of candidate.parts) {
-      part.aggregate!.body.setLinearVelocity(this.pullVelocity);
-      part.aggregate!.body.setAngularVelocity(this.angularScratch.set((Math.random() - 0.5) * 7, (Math.random() - 0.5) * 9, (Math.random() - 0.5) * 7));
-    }
+    if (!this.player) return;
+    this.player.yaw = this.yaw;
+    this.player.move(forward, strafe, dt, keys.has(" "));
+    this.player.update(dt, 0);
+    this.playerPosition.copy(this.player.position);
   }
 
   private placeCamera(_snap: boolean): void {
@@ -918,10 +934,9 @@ export class CrowdAtGatsbysChapter implements Chapter {
       return;
     }
     if (this.phase === "ending") {
-      const turnProgress = THREE.MathUtils.smoothstep(this.endElapsed, 2.25, 3.25);
       const revealProgress = THREE.MathUtils.smoothstep(this.endElapsed, 1.15, 2.45);
-      this.host.rotation.y = Math.PI * (1 - turnProgress);
-      if (this.faceReveal) this.faceReveal.visible = this.faceImage.complete && this.faceImage.naturalWidth > 0 && revealProgress > 0.9;
+      this.endingRevealProgress = revealProgress;
+      if (this.faceReveal) this.faceReveal.visible = this.gatsbyPhotoLoaded && revealProgress > 0.9;
       camera.position.set(
         THREE.MathUtils.lerp(this.playerPosition.x, this.host.position.x, revealProgress),
         THREE.MathUtils.lerp(1.62, 1.6, revealProgress),
@@ -932,8 +947,9 @@ export class CrowdAtGatsbysChapter implements Chapter {
       camera.updateProjectionMatrix();
       return;
     }
-    this.host.rotation.y = Math.PI;
+    this.host.rotation.y = 0;
     if (this.faceReveal) this.faceReveal.visible = false;
+    this.player?.updatePresentation();
     camera.position.set(this.playerPosition.x, 1.62, this.playerPosition.z);
     camera.rotation.order = "YXZ";
     camera.rotation.set(this.pitch, this.yaw, 0);
@@ -968,19 +984,6 @@ export class CrowdAtGatsbysChapter implements Chapter {
     }
   }
 
-  private drawGatsbyFace(): void {
-    const context = this.faceCanvas.getContext("2d");
-    if (!context || !this.faceImage.complete || this.faceImage.naturalWidth === 0) return;
-    context.clearRect(0, 0, this.faceCanvas.width, this.faceCanvas.height);
-    context.save();
-    context.beginPath();
-    context.ellipse(256, 256, 220, 248, 0, 0, Math.PI * 2);
-    context.clip();
-    context.drawImage(this.faceImage, 280, 8, 112, 132, 36, 8, 440, 504);
-    context.restore();
-    this.faceTexture.needsUpdate = true;
-  }
-
   private guestCenter(guest: Guest, target: THREE.Vector3): THREE.Vector3 {
     return guest.torso.mesh.getWorldPosition(target);
   }
@@ -1002,10 +1005,7 @@ export class CrowdAtGatsbysChapter implements Chapter {
   private readonly contextMenuHandler = (event: MouseEvent): void => event.preventDefault();
 
   private readonly pointerDownHandler = (event: PointerEvent): void => {
-    if (event.button === 2) {
-      if (document.pointerLockElement === this.ctx.engine.domElement) document.exitPointerLock();
-      return;
-    }
+    if (event.button === 2) return;
     if (event.button !== 0 || this.phase !== "playing" || this.dragging) return;
     const guest = this.raycastGuest(event);
     if (!guest) {
@@ -1020,7 +1020,9 @@ export class CrowdAtGatsbysChapter implements Chapter {
     guest.thrown = false;
     this.activateRagdoll(guest);
     this.ctx.engine.domElement.style.cursor = "grabbing";
-    void this.ctx.engine.domElement.requestPointerLock?.();
+    if (document.pointerLockElement !== this.ctx.engine.domElement) {
+      void this.ctx.engine.domElement.requestPointerLock?.();
+    }
   };
 
   private readonly pointerMoveHandler = (event: PointerEvent): void => {
@@ -1048,20 +1050,22 @@ export class CrowdAtGatsbysChapter implements Chapter {
     this.dragging = null;
     guest.grabbed = false;
     this.ctx.engine.domElement.style.cursor = "grab";
-    this.guestCenter(guest, this.centerScratch);
     const swipeX = this.pointer.x - this.dragStart.x;
     const swipeY = this.pointer.y - this.dragStart.y;
-    const throwDirection = this.ctx.camera.getWorldDirection(this.dragPoint);
-    throwDirection.y = THREE.MathUtils.clamp(throwDirection.y, -0.12, 0.48);
-    throwDirection.normalize();
-    const cameraRight = this.angularScratch.set(throwDirection.z, 0, -throwDirection.x).normalize();
-    const throwPower = 12 + Math.min(8, Math.hypot(swipeX, swipeY) * 15);
-    const force = this.pullVelocity.copy(throwDirection).multiplyScalar(throwPower)
-      .addScaledVector(cameraRight, THREE.MathUtils.clamp(swipeX * 24, -18, 18));
-    force.y += 4.5 + Math.abs(swipeY) * 4 + Math.max(0, swipeY) * 7;
+    const dragLength = Math.hypot(swipeX, swipeY);
+    if (dragLength < 0.035) {
+      this.resetGuest(guest);
+      return;
+    }
+
+    const velocity = this.throwVelocity.set(swipeX, 0, -swipeY)
+      .applyQuaternion(this.ctx.camera.quaternion)
+      .normalize()
+      .multiplyScalar(THREE.MathUtils.clamp(dragLength * 34, 0, 22));
+    this.ctx.audio.playGuestThrow();
     guest.thrown = true;
     for (const part of guest.parts) {
-      part.aggregate!.body.setLinearVelocity(force);
+      part.aggregate!.body.setLinearVelocity(velocity);
       part.aggregate!.body.setAngularVelocity(this.angularScratch.set((Math.random() - 0.5) * 8, (Math.random() - 0.5) * 8, (Math.random() - 0.5) * 8));
     }
   };
@@ -1075,20 +1079,26 @@ export class CrowdAtGatsbysChapter implements Chapter {
     if (this.dragging) {
       const guest = this.dragging;
       guest.grabbed = false;
-      if (guest.activated && !guest.thrown) {
-        this.disposeGuestPhysics(guest);
-        guest.activated = false;
-        guest.root.position.set(guest.base.x, 0, guest.base.z);
-        guest.root.rotation.set(0, guest.baseYaw, 0);
-        for (const part of guest.parts) {
-          part.mesh.position.copy(part.rest);
-          part.mesh.rotation.set(0, 0, 0);
-        }
-      }
+      if (guest.activated && !guest.thrown) this.resetGuest(guest);
     }
     this.dragging = null;
     this.pointerDown = false;
     if (this.ctx.engine?.domElement) this.ctx.engine.domElement.style.cursor = "grab";
+  }
+
+  private resetGuest(guest: Guest): void {
+    this.disposeGuestPhysics(guest);
+    guest.activated = false;
+    guest.root.position.set(guest.base.x, 0, guest.base.z);
+    guest.root.rotation.set(0, guest.baseYaw, 0);
+    guest.collisionProxy.visible = true;
+    this.setGuestCollision(guest, true);
+    guest.collisionProxy.position.copy(guest.base).add(new THREE.Vector3(0, 0.72, 0));
+    guest.collisionProxy.quaternion.copy(guest.root.quaternion);
+    for (const part of guest.parts) {
+      part.mesh.position.copy(part.rest);
+      part.mesh.rotation.set(0, 0, 0);
+    }
   }
 
   private requirePhysics() {

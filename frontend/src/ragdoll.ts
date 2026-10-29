@@ -131,11 +131,12 @@ export class Myrtle {
     if (this.mode === "ragdoll") return; this.mode = "ragdoll";
     const impact = new Vector3(this.position.x, 1.1, this.position.z);
     for (const part of this.parts) { part.body.setLinearVelocity(new Vector3()); part.body.setAngularVelocity(new Vector3()); part.body.setMotionType(PhysicsMotionType.DYNAMIC); }
+    const spinStrength = 28 + Math.min(18, carVelocity.length() * 0.35);
     for (const part of this.parts) {
       const radial = part.mesh.position.clone().sub(impact); radial.y = Math.abs(radial.y) + 0.25; if (radial.lengthSq() > 0.0001) radial.normalize();
       const shove = carVelocity.clone().multiplyScalar(1.25 + Math.random() * 0.25), jitter = new Vector3((Math.random() - 0.5) * 4.5, 2.2 + Math.random() * 3.2, (Math.random() - 0.5) * 4.5);
       part.body.setLinearVelocity(shove.add(jitter).addScaledVector(radial, 4.5 + Math.random() * 2.5));
-      part.body.setAngularVelocity(new Vector3((Math.random() - 0.5) * 16, (Math.random() - 0.5) * 16, (Math.random() - 0.5) * 16));
+      part.body.setAngularVelocity(new Vector3((Math.random() - 0.5) * spinStrength, (Math.random() - 0.5) * spinStrength * 0.8, (Math.random() - 0.5) * spinStrength));
     }
   }
   getHitTestPoints(): Vector3[] { return ["pelvis", "torso", "head", "thighL", "thighR", "shinL", "shinR"].map((name) => this.partMap.get(name)!.mesh.position.clone()); }

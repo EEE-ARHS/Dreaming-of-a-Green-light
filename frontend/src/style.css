@@ -53,6 +53,7 @@ body.chapter15-active #speedStreaks { display: none; }
 .brand-sub { font-family: var(--sans); font-size: 8px; letter-spacing: .28em; color: rgba(242,231,207,.52); }
   .gauges { display: flex; align-items: center; gap: 16px; background: transparent; border: none; border-radius: 0; padding: 0; backdrop-filter: none; box-shadow: none; }
 .crate-counter { position: fixed; top: 76px; left: 50%; transform: translateX(-50%); font: 9px var(--sans); letter-spacing: .24em; text-transform: uppercase; color: var(--gold-light); opacity: 0; pointer-events: none; }
+#crateCounter.myrtle-flight-counter { top: 108px; padding: 10px 16px; border: 1px solid rgba(215,185,112,.34); background: rgba(5,6,9,.76); color: #f2dfa7; font-size: 11px; letter-spacing: .2em; text-shadow: 0 1px 10px rgba(242,223,167,.45); backdrop-filter: blur(5px); }
 .speedo { display: flex; align-items: baseline; gap: 6px; min-width: 90px; }
 #speedValue { font-family: var(--serif); font-variant-numeric: tabular-nums; font-size: clamp(24px,2.4vw,34px); line-height: 1; color: var(--cream); }
 .unit { font-family: var(--sans); font-size: 9px; letter-spacing: .2em; color: var(--gold); }

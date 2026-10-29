@@ -4,7 +4,7 @@
   "name": "THE GUESTS",
   "blurb": "As Nick, step into Gatsby's midnight crowd and clear a path by throwing guests aside until their host comes into view.",
   "command": "FIND GATSBY",
-  "how": "First-person as Nick · WASD / arrow keys to move · mouse to look · F pushes a nearby guest · hold left click on a guest, drag to aim, and release to throw them · ESC for chapters.",
+  "how": "First-person as Nick · WASD / arrow keys to move · mouse to look · hold left click on a guest, drag, and release to throw them in that direction · ESC for chapters.",
   "flavor": {
     "win": {
       "kicker": "CHAPTER IV · WEST EGG",

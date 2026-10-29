@@ -6,6 +6,7 @@ import { toMph } from "../../frontend/src/chapters/types";
 import { showCaption, feedCaptions } from "../../frontend/src/ui";
 import { MYRTLE_Z, FINISH_Z, BEATS, type RoundPhase } from "./constants";
 import manifest from "./assets/manifest.json";
+import { MyrtleAftermath } from "./aftermath";
 
 const randomBetween = (min: number, max: number): number => min + Math.random() * (max - min);
 
@@ -36,7 +37,7 @@ export class CrashDriveChapter {
   private waveAnnounced = false;
   private hit = false;
   private missed = false;
-  private aftermath = false;
+  private inAftermath = false;
   private viewer: PhysicsViewer | null = null;
   private distortion = 0;
   private distortionTarget = 0;
@@ -55,10 +56,12 @@ export class CrashDriveChapter {
   private impactParticleMaterial: PointsMaterial | null = null;
   private impactParticleVelocities = new Float32Array(0);
   private impactParticleLife = 0;
+  private readonly aftermath: MyrtleAftermath;
   private readonly unsubscribes: (() => void)[] = [];
 
   constructor(ctx: ChapterContext) {
     this.ctx = ctx;
+    this.aftermath = new MyrtleAftermath(ctx.scene, (text, hold, priority) => this.say(text, hold, priority));
     this.unsubscribes.push(ctx.onKey((key: string) => {
       if (key === "p") this.toggleColliders();
     }));
@@ -68,22 +71,25 @@ export class CrashDriveChapter {
     const { car, myrtle } = this.requireValley();
     this.time = 0;
     this.introElapsed = 0;
+    this.inAftermath = false;
     this.disposeImpactParticles();
+    this.aftermath.dispose();
     car.reset(); myrtle.reset(); this.phase = "driving"; this.won = false;
     this.timeScaleHint = 1; this.shake = 0; this.captionQueue.length = 0; this.captionTimer = 0;
     this.impactElapsed = 0; this.impactMph = 0; this.crossingStarted = false; this.waveAnnounced = false;
-    this.hit = false; this.missed = false; this.aftermath = false; this.distortion = 0; this.distortionTarget = 0; this.distortionEnvelope = 0;
+    this.hit = false; this.missed = false; this.inAftermath = false; this.distortion = 0; this.distortionTarget = 0; this.distortionEnvelope = 0;
     this.nextDistortionAt = randomBetween(1.8, 4.5); this.nextSlipAt = randomBetween(2.5, 5.5); this.slipUntil = 0; this.slipSteer = 0;
     for (const beat of BEATS) beat.done = false;
     this.ctx.dom.flash.classList.remove("fire");
     this.ctx.dom.hud.classList.add("live"); this.ctx.dom.letterbox.classList.add("on");
-    this.snapCamera(); this.say("The engine catches. The ash lifts off the road.", 2.6);
+    this.snapCamera(); this.say("“A line of grey cars crawls along an invisible track, gives out a ghastly creak, and comes to rest.”", 3.8);
   }
 
   dispose(): void {
     for (const off of this.unsubscribes) off(); this.unsubscribes.length = 0;
     this.viewer?.dispose(); this.viewer = null;
     this.disposeImpactParticles();
+    this.aftermath.dispose();
   }
 
   outcome(): ChapterOutcome {
@@ -150,12 +156,16 @@ export class CrashDriveChapter {
     const speedRatio = Math.min(1, Math.abs(car.speed) / 31);
     let rate = 6.5;
 
-    if (this.aftermath) {
+    if (this.inAftermath) {
       const center = myrtle.getCenter();
-      this.cameraDesired.copy(center).add(new Vector3(4.6, 1.9, -4.2));
-      this.targetDesired.copy(center).add(new Vector3(0, 0.15, 0));
-      camera.fov = 46;
-      rate = 3.4;
+      const pan = Math.max(0, Math.min(1, (this.impactElapsed - 0.35) / 2.4));
+      const easedPan = pan * pan * (3 - 2 * pan);
+      const wideTarget = center.clone().lerp(new Vector3(10.5, 1.05, MYRTLE_Z), 0.48);
+      this.cameraDesired.copy(center).add(new Vector3(4.6, 1.9, -4.2))
+        .lerp(wideTarget.clone().add(new Vector3(10, 5.2, -14)), easedPan);
+      this.targetDesired.copy(center).add(new Vector3(0, 0.15, 0)).lerp(wideTarget, easedPan);
+      camera.fov = 46 + easedPan * 12;
+      rate = 3.4 - easedPan * 0.7;
     } else {
       const chasePosition = carPos.clone().addScaledVector(fwd, -7.4 - speedRatio * 1.2).add(new Vector3(0, 2.9, 0));
       const chaseTarget = carPos.clone().addScaledVector(fwd, 10).add(new Vector3(0, 1.05, 0));
@@ -176,29 +186,24 @@ export class CrashDriveChapter {
       }
     }
 
-    if (!this.aftermath && this.distortion > 0.01) {
+    if (!this.inAftermath && this.distortion > 0.01) {
       rate *= Math.max(0.45, 1 - 0.5 * this.distortion);
       camera.fov += this.distortion * (19.5 + 5.7 * Math.sin(this.time * 2.4 + this.distortionEnvelope));
     }
     const blend = snap ? 1 : 1 - Math.exp(-rate * dt);
     camera.position.lerp(this.cameraDesired, blend);
     this.lookAt.lerp(this.targetDesired, snap ? 1 : 1 - Math.exp(-(rate + 3) * dt));
-    if (this.aftermath && myrtle.mode === "ragdoll") {
-      this.lookAt.copy(this.targetDesired);
-      this.cameraDesired.copy(this.targetDesired).add(new Vector3(4.6, 1.9, -4.2));
-      camera.position.lerp(this.cameraDesired, 1 - Math.exp(-dt * 3.4));
-    }
     const amount = this.shake * 0.28;
     if (amount > 0.001) camera.position.add(new Vector3((Math.random() - 0.5) * amount, (Math.random() - 0.5) * amount, (Math.random() - 0.5) * amount));
     camera.lookAt(this.lookAt);
-    if (!this.aftermath && this.distortion > 0.01) camera.rotation.z += Math.sin(this.time * 3.1) * 0.14 * this.distortion + Math.sin(this.time * 7.7) * 0.035 * this.distortion;
+    if (!this.inAftermath && this.distortion > 0.01) camera.rotation.z += Math.sin(this.time * 3.1) * 0.14 * this.distortion + Math.sin(this.time * 7.7) * 0.035 * this.distortion;
   }
   private checkStory(): void {
     const { car, myrtle } = this.requireValley();
     for (const beat of BEATS) if (!beat.done && car.root.position.z > beat.z) { beat.done = true; this.say(beat.text, beat.hold); }
     const remaining = MYRTLE_Z - car.root.position.z, triggerAt = Math.min(122, Math.max(46, Math.abs(car.speed) * 3.4 + 16));
-    if (!this.crossingStarted && remaining > 0 && remaining < triggerAt) { this.crossingStarted = true; myrtle.startCrossing(); this.say("Myrtle steps into the road. Hit her before she crosses!", 4, true); }
-    if (!this.waveAnnounced && myrtle.mode === "waving") { this.waveAnnounced = true; this.say("Myrtle waves in the middle of the road. Keep your speed up!", 4.4, true); }
+    if (!this.crossingStarted && remaining > 0 && remaining < triggerAt) { this.crossingStarted = true; myrtle.startCrossing(); this.say("“A moment later she rushed out into the dusk, waving her hands and shouting—before he could move from his door the business was over.”", 4.8, true); }
+    if (!this.waveAnnounced && myrtle.mode === "waving") { this.waveAnnounced = true; this.say("“So we drove on toward death through the cooling twilight.”", 3.6, true); }
   }
   private checkHit(): void {
     const { car, myrtle } = this.requireValley();
@@ -207,9 +212,11 @@ export class CrashDriveChapter {
   }
   private triggerImpact(): void {
     const { car, myrtle, audio } = this.requireValley();
-    this.hit = true; this.aftermath = true; this.phase = "impact"; this.impactElapsed = 0;
+    this.hit = true; this.inAftermath = true; this.phase = "impact"; this.impactElapsed = 0;
     this.impactMph = Math.round(toMph(car.speed)); this.timeScaleHint = 0.34; this.won = true;
-    this.spawnImpactParticles(myrtle.getCenter());
+    const hitCenter = myrtle.getCenter();
+    this.aftermath.start(hitCenter);
+    this.spawnImpactParticles(hitCenter);
     myrtle.activate(car.forward.multiplyScalar(Math.max(18, Math.abs(car.speed) * 1.35))); car.crashed = true;
     audio.impact(); this.ctx.dom.flash.classList.add("fire");
     window.setTimeout(() => this.ctx.dom.flash.classList.remove("fire"), 120);
@@ -257,7 +264,7 @@ export class CrashDriveChapter {
       car.steer += (this.slipSteer - car.steer) * Math.min(1, scaled * 2.4);
       car.yaw += this.slipSteer * Math.min(1, Math.abs(car.speed) / 10) * scaled * 0.5;
     }
-    if (this.aftermath) this.distortionTarget = this.impactElapsed < 1.4 ? 1 : 0.45;
+    if (this.inAftermath) this.distortionTarget = this.impactElapsed < 1.4 ? 1 : 0.45;
     else if (this.phase !== "driving") this.distortionTarget = 0;
     this.distortion += (this.distortionTarget - this.distortion) * Math.min(1, scaled * randomBetween(1.6, 3.4));
     if (this.phase === "impact") {
@@ -265,14 +272,18 @@ export class CrashDriveChapter {
       this.updateImpactParticles(dt);
       if (this.impactElapsed > 0.45) this.timeScaleHint += (1 - this.timeScaleHint) * Math.min(1, scaled * 0.85);
       this.shake *= Math.max(0, 1 - scaled * 2.2);
-      if (this.impactElapsed > 3.1) this.phase = "complete";
     } else { this.timeScaleHint = 1; this.shake *= Math.max(0, 1 - scaled * 3.4); }
+    if (this.inAftermath) {
+      this.aftermath.update(dt, this.impactElapsed, this.time, myrtle.getCenter());
+      if (this.phase === "impact" && this.impactElapsed > 8.8) this.phase = "complete";
+    }
     if (this.phase === "driving" && !this.hit && !this.missed && (car.root.position.z > FINISH_Z || (this.crossingStarted && myrtle.position.x < -2))) {
       this.missed = true; this.won = false; this.phase = "complete";
-      this.say("Myrtle made it across. The yellow car missed its chance.", 3.4, true);
+      this.say("“The ‘death car’ as the newspapers called it, didn’t stop; it came out of the gathering darkness, wavered tragically for a moment, and then disappeared around the next bend.”", 5.2, true);
     }
     this.feedCaptions(scaled); this.updateHud(); this.placeCamera(scaled); audio.setEngine(car.speed, input.throttle, car.crashed);
   }
+
   private spawnImpactParticles(center: Vector3): void {
     this.disposeImpactParticles();
     const count = 72;

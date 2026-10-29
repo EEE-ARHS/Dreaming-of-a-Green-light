@@ -121,6 +121,7 @@ async function boot(initialChapterId: string, onReady: () => void): Promise<void
   }
   runtimeAudio = new GameAudio();
   const audio = runtimeAudio;
+  const unlockAudio = () => { void audio.start().catch((error: unknown) => console.warn("Unable to start game audio:", error)); };
   const say = (text: string, hold = 4.4, priority = false) => {
     if (priority) captionQueue.length = 0;
     showCaption(text, hold);
@@ -135,6 +136,8 @@ async function boot(initialChapterId: string, onReady: () => void): Promise<void
 
   runtimeEvents = new AbortController();
   const eventOptions = { signal: runtimeEvents.signal };
+  window.addEventListener("pointerdown", unlockAudio, { ...eventOptions, once: true });
+  window.addEventListener("keydown", unlockAudio, { ...eventOptions, once: true });
   window.addEventListener("resize", () => {
     camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
   }, eventOptions);
@@ -320,7 +323,8 @@ function render(now: number, delta: number) {
     const dt = Math.min(realDt, 1 / 30);
     const physicsScale = playingChapter?.physicsScale ?? 1;
     if (physics) physics.setTimeStep(dt * physicsScale);
-    playingChapter?.update(dt);
+    const cinematicChapter = lastDef?.id === "nicksHouse" || lastDef?.id === "crowdAtGatsbys";
+    playingChapter?.update(cinematicChapter ? Math.min(delta, 0.1) : dt);
     if (playingChapter && playingChapter.outcome() !== "pending") endGame(playingChapter.outcome());
     physics?.step();
     const state = { captionTimer, captionQueue };

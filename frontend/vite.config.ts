@@ -20,5 +20,8 @@ export default defineConfig({
   },
   server: {
     host: true,
+    fs: {
+      allow: [fileURLToPath(new URL("../", import.meta.url))],
+    },
   },
 });

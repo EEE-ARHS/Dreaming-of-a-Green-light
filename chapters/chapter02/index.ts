@@ -104,6 +104,9 @@ export class NicksHouseChapter {
   private won = false;
   private endingElapsed = 0;
   private endingStarted = false;
+  private endingTitleShown = false;
+  private farewellCuePlayed = false;
+  private porchRevealCuePlayed = false;
   private readonly savedCameraPosition = new THREE.Vector3();
   private readonly savedCameraQuaternion = new THREE.Quaternion();
   private savedFov = 50;
@@ -126,6 +129,9 @@ export class NicksHouseChapter {
     this.won = false;
     this.endingElapsed = 0;
     this.endingStarted = false;
+    this.endingTitleShown = false;
+    this.farewellCuePlayed = false;
+    this.porchRevealCuePlayed = false;
     this.dragged = null;
     this.crates = [];
     this.cratesToRelease.clear();
@@ -185,11 +191,13 @@ export class NicksHouseChapter {
       this.player?.updatePresentation();
       return;
     }
+    const simulationDt = Math.min(dt, 1 / 30);
     if (this.arrivalPhase !== "done") {
       this.player?.updatePresentation();
-      this.updateArrivalCutscene(dt);
+      this.updateArrivalCutscene(simulationDt);
       return;
     }
+    dt = simulationDt;
     this.updateLook(dt);
     this.updateWalk(dt);
     this.player?.update(dt, this.playerSpeed);
@@ -539,8 +547,10 @@ export class NicksHouseChapter {
       this.player?.setAvatarVisible(true);
       this.player?.setWaving(true);
       this.ctx.say("Nick's little house is home. Across the bay, Gatsby waits alone on his porch.", ENDING_CUTSCENE_SECONDS, true);
+      this.farewellCuePlayed = false;
+      this.porchRevealCuePlayed = false;
     }
-    this.endingElapsed += dt;
+    this.endingElapsed += Math.min(dt, 0.1);
     const camera = this.ctx.camera;
     const pullbackProgress = THREE.MathUtils.smoothstep(this.endingElapsed, 0, 2.1);
     const waveHold = THREE.MathUtils.smoothstep(this.endingElapsed, 0.2, 0.55) * (1 - THREE.MathUtils.smoothstep(this.endingElapsed, 2.2, 3.05));
@@ -555,6 +565,14 @@ export class NicksHouseChapter {
     const nickLookTarget = new THREE.Vector3(nickPosition.x, 1.34, nickPosition.z);
     const wideLookTarget = new THREE.Vector3(0, 1.5, -2.5);
     const lookTarget = nickLookTarget.lerp(wideLookTarget, pullbackProgress).lerp(gatsbyPorch, panProgress);
+    if (!this.farewellCuePlayed && waveHold > 0.05) {
+      this.farewellCuePlayed = true;
+      this.ctx.audio.playFarewell();
+    }
+    if (!this.porchRevealCuePlayed && panProgress > 0.12) {
+      this.porchRevealCuePlayed = true;
+      this.ctx.audio.playPorchReveal();
+    }
     if (this.exterior) {
       const mansion = this.exterior.getObjectByName("gatsby-mansion");
       const porch = this.exterior.getObjectByName("gatsby-mansion-porch");
@@ -575,7 +593,8 @@ export class NicksHouseChapter {
       }
       if (gatsby) {
         gatsby.visible = showMansion;
-        gatsby.rotation.y = THREE.MathUtils.lerp(0.45, 0, panProgress);
+        gatsby.rotation.y = THREE.MathUtils.lerp(-0.5, -0.8, panProgress);
+        this.animatePorchGatsby(gatsby, dt);
       }
     }
     this.player?.setWaving(waveHold > 0.05);
@@ -584,7 +603,34 @@ export class NicksHouseChapter {
     camera.lookAt(lookTarget);
     camera.fov = THREE.MathUtils.lerp(61, 48, panProgress);
     camera.updateProjectionMatrix();
-    if (this.endingElapsed >= ENDING_CUTSCENE_SECONDS && this.endingElapsed < ENDING_CUTSCENE_SECONDS + dt) this.ctx.dom.titleFlash("GATSBY'S WEST EGG · ACROSS THE BAY");
+    if (!this.endingTitleShown && this.endingElapsed >= ENDING_CUTSCENE_SECONDS) {
+      this.endingTitleShown = true;
+      this.ctx.dom.titleFlash("GATSBY'S WEST EGG · ACROSS THE BAY");
+    }
+  }
+
+  private animatePorchGatsby(gatsby: THREE.Group, dt: number): void {
+    const phase = (Number(gatsby.userData.breathPhase) || 0) + dt * 1.25;
+    gatsby.userData.breathPhase = phase % (Math.PI * 2);
+    const breath = Math.sin(phase);
+    const jacket = gatsby.getObjectByName("gatsby-jacket");
+    if (jacket instanceof THREE.Mesh) jacket.scale.y = 1 + breath * 0.008;
+    const head = gatsby.getObjectByName("gatsby-face");
+    if (head instanceof THREE.Mesh) {
+      head.position.y = 1.62 + breath * 0.006;
+      head.rotation.x = Math.sin(phase * 0.48) * 0.025;
+      head.rotation.z = Math.sin(phase * 0.31) * 0.018;
+    }
+    const faceImage = gatsby.getObjectByName("gatsby-face-image");
+    if (faceImage instanceof THREE.Mesh) {
+      faceImage.position.y = 1.62 + breath * 0.006;
+      faceImage.rotation.x = Math.sin(phase * 0.48) * 0.025;
+      faceImage.rotation.z = Math.sin(phase * 0.31) * 0.018;
+    }
+    const leftHand = gatsby.getObjectByName("gatsby-hand--1");
+    if (leftHand instanceof THREE.Mesh) leftHand.position.y = 1.17 + Math.sin(phase * 0.52 + 0.6) * 0.008;
+    const lantern = gatsby.getObjectByName("gatsby-porch-lantern-light");
+    if (lantern instanceof THREE.PointLight) lantern.intensity = 2.1 + Math.sin(phase * 3.7) * 0.12;
   }
 
   private updatePorchGatsbyFace(): void {
@@ -600,18 +646,31 @@ export class NicksHouseChapter {
         texture.dispose();
         return;
       }
-      texture.colorSpace = THREE.SRGBColorSpace;
-      texture.anisotropy = Math.min(8, this.ctx.engine.capabilities.getMaxAnisotropy());
-      const material = new THREE.MeshBasicMaterial({ map: texture, toneMapped: false });
-      const face = gatsby.getObjectByName("gatsby-face");
-      if (face instanceof THREE.Mesh) {
-        const previousMaterial = face.material;
-        face.material = material;
-        if (Array.isArray(previousMaterial)) previousMaterial.forEach((item) => item.dispose());
-        else previousMaterial.dispose();
-      } else {
-        material.dispose();
+      const face = gatsby.getObjectByName("gatsby-face-image") as THREE.Mesh | null;
+      const faceMaterial = face?.material;
+      const faceImage = texture.image as HTMLImageElement;
+      if (!(faceMaterial instanceof THREE.MeshBasicMaterial) || !faceImage?.naturalWidth) {
+        texture.dispose();
+        gatsby.userData.faceTexturePending = false;
+        return;
       }
+      const crop = document.createElement("canvas");
+      crop.width = 256;
+      crop.height = 320;
+      const cropContext = crop.getContext("2d");
+      if (!cropContext) {
+        texture.dispose();
+        gatsby.userData.faceTexturePending = false;
+        return;
+      }
+      cropContext.drawImage(faceImage, 535, 25, 320, 400, 0, 0, crop.width, crop.height);
+      texture.dispose();
+      const croppedTexture = new THREE.CanvasTexture(crop);
+      croppedTexture.colorSpace = THREE.SRGBColorSpace;
+      croppedTexture.anisotropy = Math.min(8, this.ctx.engine.capabilities.getMaxAnisotropy());
+      faceMaterial.map = croppedTexture;
+      faceMaterial.color.set("#ffffff");
+      faceMaterial.needsUpdate = true;
       gatsby.userData.faceTexturePending = false;
     }, undefined, (error) => {
       gatsby.userData.faceTexturePending = false;
@@ -672,22 +731,21 @@ export class NicksHouseChapter {
     add(box, suit, [0.14, 1.39, -0.22], "gatsby-right-lapel").scale.set(0.09, 0.29, 0.035);
     for (const buttonY of [1.19, 1.32, 1.44]) add(sphere, brass, [0.075, buttonY, -0.267], `gatsby-button-${buttonY}`).scale.setScalar(0.018);
     add(box, shirt, [-0.14, 1.12, -0.226], "gatsby-pocket-square").scale.set(0.1, 0.045, 0.018);
-    const face = add(sphere, skin, [0, 1.62, -0.04], "gatsby-face");
-    face.scale.set(1, 1.12, 0.92);
-    const facePivot = new THREE.Group();
-    facePivot.name = "gatsby-face-pivot";
-    facePivot.position.set(0, 1.62, -0.04);
-    face.add(facePivot);
+    const neck = add(cylinder, skin, [0, 1.43, 0], "gatsby-neck");
+    neck.scale.set(0.085, 0.17, 0.085);
+    const face = add(new THREE.SphereGeometry(1, 18, 14), skin, [0, 1.62, -0.04], "gatsby-face");
+    face.scale.set(0.15, 0.18, 0.14);
     const facePlane = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.235, 0.235 * 750 / 1333),
-      new THREE.MeshBasicMaterial({ color: "#bd9275", side: THREE.DoubleSide, toneMapped: false }),
+      new THREE.PlaneGeometry(0.235, 0.292),
+      new THREE.MeshBasicMaterial({ color: "#ffffff", side: THREE.DoubleSide, toneMapped: false }),
     );
     facePlane.name = "gatsby-face-image";
-    facePlane.position.z = -0.006;
-    facePivot.add(facePlane);
-    add(sphere, hair, [0, 1.69, -0.035], "gatsby-combed-hair").scale.set(1.02, 0.48, 0.96);
-    add(sphere, skin, [-0.13, 1.5, -0.04], "gatsby-ear-left").scale.set(0.13, 0.18, 0.1);
-    add(sphere, skin, [0.13, 1.5, -0.04], "gatsby-ear-right").scale.set(0.13, 0.18, 0.1);
+    facePlane.position.set(0, 1.62, -0.19);
+    gatsby.add(facePlane);
+    const hairCap = add(new THREE.SphereGeometry(0.16, 18, 12, 0, Math.PI * 2, 0, Math.PI / 2), hair, [0, 1.68, -0.035], "gatsby-combed-hair");
+    hairCap.scale.set(1.02, 0.82, 0.96);
+    add(sphere, skin, [-0.145, 1.59, -0.04], "gatsby-ear-left").scale.set(0.035, 0.055, 0.035);
+    add(sphere, skin, [0.145, 1.59, -0.04], "gatsby-ear-right").scale.set(0.035, 0.055, 0.035);
 
     // Seated human proportions: a distinct waist, jointed knees, calves, shoes and relaxed hands.
     add(box, waistcoat, [0, 0.91, 0.08], "gatsby-waist").scale.set(0.3, 0.25, 0.25);
@@ -719,6 +777,7 @@ export class NicksHouseChapter {
       bar.rotation.y = angle;
     }
     const lantern = new THREE.PointLight("#ffc976", 2.1, 7, 2);
+    lantern.name = "gatsby-porch-lantern-light";
     lantern.position.set(-0.83, 1.48, 0.19);
     gatsby.add(lantern);
     return gatsby;
@@ -1226,6 +1285,7 @@ export class NicksHouseChapter {
         this.won = true;
         this.endingElapsed = 0;
         this.endingStarted = false;
+        this.endingTitleShown = false;
         this.ctx.say("The last belonging is safely home. Nick's lamp glows against the evening; across the bay, Gatsby's lights begin to wake.", 6, true);
         for (const object of this.exterior?.children ?? []) {
           if (object.name.startsWith("gatsby-mansion-") || object.name.startsWith("gatsby-ballroom-") || object.name.startsWith("gatsby-dock-") || object.name.startsWith("gatsby-terrace-guest")) object.visible = false;
