@@ -323,7 +323,7 @@ function render(now: number, delta: number) {
     const dt = Math.min(realDt, 1 / 30);
     const physicsScale = playingChapter?.physicsScale ?? 1;
     if (physics) physics.setTimeStep(dt * physicsScale);
-    const cinematicChapter = lastDef?.id === "nicksHouse" || lastDef?.id === "crowdAtGatsbys";
+    const cinematicChapter = lastDef?.id === "nicksHouse" || lastDef?.id === "nicksHouseUnpacking" || lastDef?.id === "crowdAtGatsbys";
     playingChapter?.update(cinematicChapter ? Math.min(delta, 0.1) : dt);
     if (playingChapter && playingChapter.outcome() !== "pending") endGame(playingChapter.outcome());
     physics?.step();
