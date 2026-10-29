@@ -41,7 +41,7 @@ interface SceneSnapshot {
 }
 
 /**
- * CHAPTER 15 — Boats Against the Current.
+ * CHAPTER XV — Boats Against the Current.
  *
  * The player drives a moonlit luxury yacht toward the green light at the end
  * of Daisy's dock. Sum-of-sines swells buffet the hull, the current strengthens,

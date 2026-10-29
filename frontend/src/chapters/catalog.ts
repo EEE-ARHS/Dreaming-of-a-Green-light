@@ -25,6 +25,19 @@ export interface ChapterCatalogEntry {
   hud?: ChapterHud;
 }
 
+function toRomanNumeral(value: number): string {
+  const numerals: [number, string][] = [[10, "X"], [9, "IX"], [5, "V"], [4, "IV"], [1, "I"]];
+  let remainder = value;
+  let result = "";
+  for (const [amount, numeral] of numerals) {
+    while (remainder >= amount) {
+      result += numeral;
+      remainder -= amount;
+    }
+  }
+  return result;
+}
+
 export const CHAPTER_CATALOG: ChapterCatalogEntry[] = [
   {
     id: "nicksHouseUnpacking",
@@ -49,7 +62,7 @@ export const CHAPTER_CATALOG: ChapterCatalogEntry[] = [
   },
   {
     id: "chapter02",
-    slot: "CHAPTER 02",
+    slot: "CHAPTER II",
     name: "????????",
     blurb: "An undecided chapter is waiting in the wings.",
     command: "...",
@@ -58,7 +71,7 @@ export const CHAPTER_CATALOG: ChapterCatalogEntry[] = [
   },
   {
     id: "chapter03",
-    slot: "CHAPTER 03",
+    slot: "CHAPTER III",
     name: "????????",
     blurb: "An undecided chapter is waiting in the wings.",
     command: "...",
@@ -88,7 +101,7 @@ export const CHAPTER_CATALOG: ChapterCatalogEntry[] = [
   },
   {
     id: "chapter05",
-    slot: "CHAPTER 05",
+    slot: "CHAPTER V",
     name: "????????",
     blurb: "An undecided chapter is waiting in the wings.",
     command: "...",
@@ -118,7 +131,7 @@ export const CHAPTER_CATALOG: ChapterCatalogEntry[] = [
         scene: "west-egg",
         firstPerson: true,
         hud: {
-          brand: "NICK'S HOUSE",
+          brand: "THE VISIT",
           sub: "CHAPTER VII · WEST EGG",
           keys: [
             { key: "WASD / ARROWS", label: "walk" },
@@ -131,7 +144,7 @@ export const CHAPTER_CATALOG: ChapterCatalogEntry[] = [
     }
     return {
       id: `chapter${String(number).padStart(2, "0")}`,
-      slot: `CHAPTER ${String(number).padStart(2, "0")}`,
+      slot: `CHAPTER ${toRomanNumeral(number)}`,
       name: "????????",
       blurb: "An undecided chapter is waiting in the wings.",
       command: "...",

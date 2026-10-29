@@ -1,6 +1,6 @@
 {
-  "slot": "CHAPTER 07",
-  "name": "NICK'S HOUSE",
+  "slot": "CHAPTER VII",
+  "name": "THE VISIT",
   "blurb": "Gatsby asks Nick to prepare his house for Daisy's visit. Mow the backyard and arrange the daisies he loves.",
   "command": "A GARDEN FOR DAISY",
   "how": "First-person · WASD / arrow keys walk · IJKL look · Mow every row of the marked lawn · Click a daisy, then click an outlined vase · ESC for chapters",
@@ -20,14 +20,14 @@
   },
   "flavor": {
     "win": {
-      "kicker": "CHAPTER I · WEST EGG",
+      "kicker": "CHAPTER VII · WEST EGG",
       "title": "A GARDEN FOR DAISY",
       "body": "Nick mowed every row and placed the daisies around his little West Egg home. Gatsby's money bought a beautiful afternoon, and Daisy would find the garden waiting.",
       "quote": "I hope she'll be a fool — that's the best thing a girl can be in this world, a beautiful little fool.",
       "cite": "F. Scott Fitzgerald, The Great Gatsby"
     },
     "lose": {
-      "kicker": "CHAPTER I · WEST EGG",
+      "kicker": "CHAPTER VII · WEST EGG",
       "title": "A GARDEN STILL WAITING",
       "body": "The lawn still has uncut rows and the vases are waiting for daisies. Gatsby's offer remains on the table whenever Nick is ready to finish.",
       "quote": "I hope she'll be a fool — that's the best thing a girl can be in this world, a beautiful little fool.",

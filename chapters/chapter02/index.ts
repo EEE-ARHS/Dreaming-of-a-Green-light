@@ -109,6 +109,7 @@ export class NicksHouseChapter {
     this.flowers = [];
     this.spots = [];
     this.heldFlower = null;
+    if (document.pointerLockElement === this.ctx.engine.domElement) document.exitPointerLock();
 
     this.exterior = buildExterior((object, width, height, depth) => this.addStaticCollider(object, width, height, depth));
     this.ctx.scene.add(this.exterior);
@@ -136,7 +137,7 @@ export class NicksHouseChapter {
     this.updateProgressHud();
     const canvas = this.ctx.engine.domElement;
     canvas.addEventListener("mousedown", this.onMouseDown);
-    canvas.addEventListener("mousemove", this.onMouseMove);
+    window.addEventListener("mousemove", this.onMouseMove);
     canvas.addEventListener("contextmenu", this.onContextMenu);
     canvas.style.cursor = "crosshair";
     this.ctx.dom.hud.classList.add("first-person-hud");
@@ -162,6 +163,8 @@ export class NicksHouseChapter {
     this.player.update(dt, this.playerSpeed);
     this.updatePlayerCamera();
     if (this.phase === "mowing") this.updateMowing();
+    if (this.phase === "flowers") this.updateFlowerCrosshair();
+    else document.getElementById("crosshair")?.classList.remove("is-interactive", "is-grabbing");
     this.updateProgressHud();
   }
 
@@ -181,8 +184,9 @@ export class NicksHouseChapter {
   dispose(): void {
     const canvas = this.ctx.engine.domElement;
     canvas.removeEventListener("mousedown", this.onMouseDown);
-    canvas.removeEventListener("mousemove", this.onMouseMove);
+    window.removeEventListener("mousemove", this.onMouseMove);
     canvas.removeEventListener("contextmenu", this.onContextMenu);
+    if (document.pointerLockElement === canvas) document.exitPointerLock();
     canvas.style.cursor = "default";
     document.getElementById("crosshair")?.classList.remove("is-interactive", "is-grabbing");
     document.body.classList.remove("chapter01-active");
@@ -501,6 +505,7 @@ export class NicksHouseChapter {
     camera.position.set(player.position.x, player.position.y + 1.62, player.position.z);
     camera.rotation.order = "YXZ";
     camera.rotation.set(this.playerPitch, this.playerYaw, 0);
+    camera.updateMatrixWorld();
     this.forward.set(-Math.sin(this.playerYaw), 0, -Math.cos(this.playerYaw));
   }
 
@@ -530,7 +535,9 @@ export class NicksHouseChapter {
     if (this.mowedCount >= this.mowed.length) {
       this.phase = "flowers";
       if (this.mower) this.mower.visible = false;
-      this.ctx.say("Every row is cut. Now make Nick's house ready for Daisy—place a flower in every outlined vase.", 4.5, true);
+      this.ctx.say("Every row is cut. Now make Nick's house ready for Daisy—aim at a daisy and click to pick it up, then aim at an outlined vase and click to place it.", 5.5, true);
+      this.updatePlayerCamera();
+      this.updateFlowerCrosshair();
       this.updateProgressHud();
     }
   }
@@ -803,23 +810,20 @@ export class NicksHouseChapter {
   }
 
   private readonly onMouseDown = (event: MouseEvent): void => {
-    if (event.button !== 0 || this.phase !== "flowers") return;
+    if (event.button !== 0 || (this.phase !== "mowing" && this.phase !== "flowers")) return;
     event.preventDefault();
-    this.updatePointer(event);
-    this.raycaster.setFromCamera(this.pointer, this.ctx.camera);
-    if (this.heldFlower) {
-      const targets = this.spots.filter((spot) => !spot.flower).map((spot) => spot.root);
-      const hit = this.raycaster.intersectObjects(targets, true).find((item) => item.distance <= 24);
-      const spotIndex = hit ? this.findAncestorData<number>(hit.object, "daisyVaseSpot") : null;
-      const spot = spotIndex === null ? undefined : this.spots[spotIndex];
-      if (spot && this.heldFlower) {
+    if (this.phase === "flowers") {
+      const target = this.raycastFlowerTarget();
+      if (target?.spot && this.heldFlower) {
         const flower = this.heldFlower;
-        this.ctx.camera.remove(flower);
-        flower.position.set(0, 0.67, 0);
+        this.ctx.camera.updateMatrixWorld(true);
+        flower.updateMatrixWorld(true);
+        this.ctx.scene.attach(flower);
+        flower.position.set(0, 0.18, 0);
         flower.scale.setScalar(1);
-        spot.root.add(flower);
-        spot.flower = flower;
-        spot.outline.visible = false;
+        target.spot.root.add(flower);
+        target.spot.flower = flower;
+        target.spot.outline.visible = false;
         this.heldFlower = null;
         this.flowerCount++;
         if (this.flowerCount === FLOWER_SPOTS.length) {
@@ -827,31 +831,74 @@ export class NicksHouseChapter {
           this.endingElapsed = 0;
           this.ctx.say("Nick's garden is ready for Daisy. Gatsby's promised envelope is waiting on the table.", 4.5, true);
           this.ctx.dom.titleFlash("A GARDEN FOR DAISY");
+          if (document.pointerLockElement === this.ctx.engine.domElement) document.exitPointerLock();
         }
+        this.updateFlowerCrosshair();
         this.updateProgressHud();
+      } else if (target?.flower && !this.heldFlower) {
+        const flower = target.flower;
+        flower.updateMatrixWorld(true);
+        this.ctx.scene.attach(flower);
+        this.ctx.camera.add(flower);
+        flower.position.set(0.28, -0.25, -0.82);
+        flower.rotation.set(0, 0, 0);
+        flower.scale.setScalar(0.62);
+        this.heldFlower = flower;
+        this.updateFlowerCrosshair();
       }
-      return;
     }
-    const available = this.flowers.filter((flower) => flower.parent === this.gameRoot);
-    const hit = this.raycaster.intersectObjects(available, true).find((item) => item.distance <= 24);
-    if (!hit) return;
-    const flowerIndex = this.findAncestorData<number>(hit.object, "daisySourceIndex");
-    const flower = flowerIndex === null ? null : this.flowers[flowerIndex];
-    if (!flower || flower.parent !== this.gameRoot) return;
-    this.gameRoot?.remove(flower);
-    this.ctx.camera.add(flower);
-    flower.position.set(0.28, -0.25, -0.82);
-    flower.rotation.set(0, 0, 0);
-    flower.scale.setScalar(0.62);
-    this.heldFlower = flower;
+    if ((this.phase === "mowing" || this.phase === "flowers") && document.pointerLockElement !== this.ctx.engine.domElement) {
+      void this.ctx.engine.domElement.requestPointerLock?.();
+    }
   };
 
-  private readonly onMouseMove = (event: MouseEvent): void => this.updatePointer(event);
+  private readonly onMouseMove = (event: MouseEvent): void => {
+    const canvas = this.ctx.engine.domElement;
+    if ((this.phase !== "mowing" && this.phase !== "flowers") || (document.pointerLockElement !== canvas && event.target !== canvas)) return;
+    this.playerYaw -= event.movementX * 0.0022;
+    this.playerPitch = THREE.MathUtils.clamp(this.playerPitch - event.movementY * 0.0018, -0.95, 0.9);
+  };
+
   private readonly onContextMenu = (event: MouseEvent): void => event.preventDefault();
 
-  private updatePointer(event: MouseEvent): void {
-    const rect = this.ctx.engine.domElement.getBoundingClientRect();
-    this.pointer.set(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1);
+  private raycastFlowerTarget(): { flower?: THREE.Group; spot?: FlowerSpot } | null {
+    const camera = this.ctx.camera;
+    this.ctx.scene.updateMatrixWorld(true);
+    camera.updateMatrixWorld(true);
+    this.pointer.set(0, 0);
+    this.raycaster.setFromCamera(this.pointer, camera);
+    if (this.heldFlower) {
+      const targets = this.spots.filter((spot) => !spot.flower).map((spot) => spot.root);
+      for (const hit of this.raycaster.intersectObjects(targets, true)) {
+        if (hit.distance > 24) break;
+        const spotIndex = this.findAncestorData<number>(hit.object, "daisyVaseSpot");
+        const spot = spotIndex === null ? undefined : this.spots[spotIndex];
+        if (spot && !spot.flower) return { spot };
+      }
+      return null;
+    }
+    const available = this.flowers.filter((flower) => flower.parent === this.gameRoot);
+    const vases = this.spots.filter((spot) => !spot.flower).map((spot) => spot.root);
+    const hits = [
+      ...this.raycaster.intersectObjects(available, true).map((hit) => ({ hit, kind: "flower" as const })),
+      ...this.raycaster.intersectObjects(vases, true).map((hit) => ({ hit, kind: "spot" as const })),
+    ].sort((a, b) => a.hit.distance - b.hit.distance);
+    for (const { hit, kind } of hits) {
+      if (hit.distance > 24) break;
+      if (kind === "spot") return null;
+      const flowerIndex = this.findAncestorData<number>(hit.object, "daisySourceIndex");
+      const flower = flowerIndex === null ? undefined : this.flowers[flowerIndex];
+      if (flower && flower.parent === this.gameRoot) return { flower };
+    }
+    return null;
+  }
+
+  private updateFlowerCrosshair(): void {
+    const crosshair = document.getElementById("crosshair");
+    if (!crosshair) return;
+    const target = this.raycastFlowerTarget();
+    crosshair.classList.toggle("is-interactive", target !== null);
+    crosshair.classList.toggle("is-grabbing", this.heldFlower !== null);
   }
 
   private findAncestorData<T>(object: THREE.Object3D, key: string): T | null {

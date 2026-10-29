@@ -373,7 +373,7 @@ function App() {
           <div className="speedo" id="speedGauge"><span id="speedValue">0</span><span className="unit">MPH</span></div>
           <div className="gauge-meta">
             <div><span id="gearValue">N</span><span className="dot">·</span><span id="distanceValue">148</span> m to Wilson's</div>
-            <div id="physicsMeta" className="physics-meta">THREE.JS · 13 BODIES · 12 JOINTS · 7 CHAPTERS</div>
+            <div id="physicsMeta" className="physics-meta">THREE.JS · XIII BODIES · XII JOINTS · VII CHAPTERS</div>
           </div>
         </div>
       </header>
