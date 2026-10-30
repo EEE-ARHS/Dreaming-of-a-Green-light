@@ -9,9 +9,9 @@ export function buildRoom(addStaticCollider: AddStaticCollider): THREE.Group {
   const room = new THREE.Group();
   room.name = "nicksHouseRoom";
 
-    const wallpaper = wallpaperTexture();
-    const floorMap = floorTexture();
-    const rugMap = rugTexture();
+  const wallpaper = wallpaperTexture();
+  const floorMap = floorTexture();
+  const rugMap = rugTexture();
     const wallMaterial = new THREE.MeshStandardMaterial({ map: wallpaper, roughness: 0.94 });
     const trimMaterial = new THREE.MeshStandardMaterial({ color: "#d8cdb2", roughness: 0.8 });
     const floorMaterial = new THREE.MeshStandardMaterial({ map: floorMap, roughness: 0.9 });
@@ -173,3 +173,29 @@ export function buildRoom(addStaticCollider: AddStaticCollider): THREE.Group {
 
   return room;
 }
+
+export function buildDaisyVase(index: number, targetScale = 1): THREE.Group {
+  const root = new THREE.Group();
+  root.name = `indoor-daisy-vase-${index + 1}`;
+  root.userData.daisyVaseSpot = index;
+  const porcelain = new THREE.MeshStandardMaterial({ color: "#d0c7b0", roughness: 0.34, metalness: 0.06 });
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.23, 0.29, 0.48, 14), porcelain);
+  base.position.y = 0.24;
+  root.add(base);
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.18, 0.22, 12), porcelain);
+  neck.position.y = 0.57;
+  root.add(neck);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.135, 0.035, 8, 16), porcelain);
+  rim.rotation.x = Math.PI / 2;
+  rim.position.y = 0.69;
+  root.add(rim);
+  const outlineMaterial = new THREE.LineBasicMaterial({ color: "#9dffc2", transparent: true, opacity: 0.82 });
+  const outlineGeometry = new THREE.EdgesGeometry(new THREE.BoxGeometry(0.78, 1.08 * targetScale, 0.78));
+  const outline = new THREE.LineSegments(outlineGeometry, outlineMaterial);
+  outline.name = `daisy-placement-outline-${index + 1}`;
+  outline.position.y = 0.62 + 0.46 * (targetScale - 1);
+  outline.scale.y = targetScale;
+  root.add(outline);
+  return root;
+}
+
