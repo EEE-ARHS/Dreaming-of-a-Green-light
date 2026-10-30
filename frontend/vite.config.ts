@@ -11,7 +11,7 @@ export default defineConfig({
       { find: /^three$/, replacement: threeEntry },
     ],
   },
-  base: "./",
+  base: "/Dreaming-of-a-Green-light/",
   build: {
     target: "es2022",
     // Havok ships as a large wasm/glue pair; keep them as real files.
