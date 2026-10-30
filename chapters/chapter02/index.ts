@@ -8,7 +8,6 @@ import manifest from "./assets/manifest.json";
 import { disposeObjectTree } from "./assets/model-loader";
 import { buildExterior } from "./exterior";
 import { buildRoom, buildDaisyVase } from "./room";
-import { ROOM_HALF } from "./constants";
 import { FLOWER_SPOTS } from "./constants";
 
 const FIELD_SIZE = 8;
@@ -113,9 +112,6 @@ export class NicksHouseChapter {
     this.spots = [];
     this.heldFlower = null;
     this.vaseRaycastTargets = [];
-    for (const child of this.vaseGroup?.children ?? []) {
-      if (child instanceof THREE.Group) this.vaseRaycastTargets.push(child);
-    }
     if (document.pointerLockElement === this.ctx.engine.domElement) document.exitPointerLock();
 
     this.exterior = buildExterior((object, width, height, depth) => this.addStaticCollider(object, width, height, depth));
@@ -138,22 +134,19 @@ export class NicksHouseChapter {
     this.vaseGroup = new THREE.Group();
     this.vaseGroup.name = "indoor-daisy-vases";
     this.roomGroup.add(this.vaseGroup);
-    const vaseFurnitureAnchors: { vaseIndex: number; parentName: string; position: [number, number, number]; scale?: number }[] = [
-      { vaseIndex: 0, parentName: "desk", position: [0.15, 0.85, 1.95], scale: 1 },
-      { vaseIndex: 1, parentName: "bookshelf", position: [-3.58, 1.14, 0.35], scale: 0.85 },
-      { vaseIndex: 2, parentName: "chair", position: [2.2, 0.76, -3.24], scale: 1 },
-      { vaseIndex: 3, parentName: "table", position: [-2.4, 0.78, -2.9], scale: 1 },
-      { vaseIndex: 4, parentName: "lamp", position: [3.05, 0.78, -0.2], scale: 0.9 },
-      { vaseIndex: 5, parentName: "mirror", position: [2.9, 1.85, -ROOM_HALF + 0.1], scale: 0.8 },
+    const vaseAnchors: { position: [number, number, number]; scale?: number }[] = [
+      { position: [0.15, 0.825, 1.95] },
+      { position: [-2.4, 0.825, -2.9] },
+      { position: [2.2, 0.5, -3.0], scale: 0.85 },
+      { position: [-3.3, 1.495, 0.1], scale: 0.8 },
+      { position: [3.05, 0.15, -0.2], scale: 0.7 },
+      { position: [1.0, 0.03, -5.2], scale: 0.9 },
     ];
-    for (const anchor of vaseFurnitureAnchors) {
-      const parentMesh = this.roomGroup?.getObjectByName(anchor.parentName) as THREE.Mesh | null;
-      const vase = buildDaisyVase(anchor.vaseIndex, anchor.scale ?? 1);
-      if (parentMesh && this.vaseGroup) {
-        parentMesh.add(vase);
-        vase.position.set(...anchor.position);
-        vase.scale.setScalar(1);
-      }
+    for (const [vaseIndex, anchor] of vaseAnchors.entries()) {
+      const vase = buildDaisyVase(vaseIndex, anchor.scale ?? 1);
+      vase.position.set(...anchor.position);
+      this.vaseGroup?.add(vase);
+      this.vaseRaycastTargets.push(vase);
     }
     this.buildGameObjects();
     this.buildMower();
@@ -577,11 +570,12 @@ export class NicksHouseChapter {
     if (this.mowedCount >= this.mowed.length) {
       this.phase = "flowers";
       if (this.mower) this.mower.visible = false;
-      this.ctx.say("Every row is cut. Now make Nick's house ready for Daisy—aim at a daisy and click to pick it up, then aim at an outlined vase and click to place it.", 5.5, true);        this.updatePlayerCamera();
-        this.updateFlowerCrosshair();
-        this.updateProgressHud();
-      }
+      this.ctx.say("Every row is cut. Now make Nick's house ready for Daisy—aim at a daisy and click to pick it up, then aim at an outlined vase and click to place it.", 5.5, true);
+      this.updatePlayerCamera();
+      this.updateFlowerCrosshair();
+      this.updateProgressHud();
     }
+  }
 
   private updateProgressHud(): void {
     if (!this.progressLabel) {
@@ -722,7 +716,7 @@ export class NicksHouseChapter {
     if (!this.gameRoot) return;
     const root = new THREE.Group();
     root.name = `daisy-vase-spot-${index + 1}`;
-    root.position.set(x, 0, z);
+    root.position.set(x, -0.11, z);
     root.userData.daisyVaseSpot = index;
     const porcelain = new THREE.MeshStandardMaterial({ color: "#d0c7b0", roughness: 0.34, metalness: 0.06 });
     const base = new THREE.Mesh(new THREE.CylinderGeometry(0.23, 0.29, 0.48, 14), porcelain);
@@ -849,36 +843,35 @@ export class NicksHouseChapter {
       leg.rotation.x = -0.04;
     }
     return gatsby;
-  }  private readonly onMouseDown = (event: MouseEvent): void => {
+  }
+
+  private readonly onMouseDown = (event: MouseEvent): void => {
     if (event.button !== 0 || (this.phase !== "mowing" && this.phase !== "flowers")) return;
     event.preventDefault();
     if (this.phase === "flowers") {
       const target = this.raycastFlowerTarget();
-      if (target?.vase && this.heldFlower) {
+      if (this.heldFlower && target?.spot) {
         const flower = this.heldFlower;
-        const vaseIndex = target.vase.userData.daisyVaseSpot;
-        if (vaseIndex === null) return;
-        const vase = this.vaseGroup?.getObjectByName(`indoor-daisy-vase-${vaseIndex + 1}`) as THREE.Group | null;
-        if (!vase || vase.getObjectByName(`daisy-placement-outline-${vaseIndex + 1}`)!.visible) return;
-        this.ctx.camera.updateMatrixWorld(true);
+        flower.updateMatrixWorld(true);
+        this.ctx.scene.attach(flower);
+        flower.position.set(0, 0.18, 0);
+        flower.scale.setScalar(1);
+        target.spot.root.add(flower);
+        target.spot.flower = flower;
+        target.spot.outline.visible = false;
+        this.finishFlowerPlacement();
+      } else if (this.heldFlower && target?.vase) {
+        const flower = this.heldFlower;
+        const vase = target.vase;
         flower.updateMatrixWorld(true);
         this.ctx.scene.attach(flower);
         flower.position.set(0, 0.18, 0);
         flower.scale.setScalar(1);
         vase.add(flower);
         vase.userData.daisyPlaced = true;
-        vase.getObjectByName(`daisy-placement-outline-${vaseIndex + 1}`)!.visible = false;
-        this.heldFlower = null;
-        this.flowerCount++;
-        if (this.flowerCount === FLOWER_SPOTS.length) {
-          this.phase = "complete";
-          this.endingElapsed = 0;
-          this.ctx.say("Nick's house is ready for Daisy. Gatsby's promised envelope is waiting inside.", 4.5, true);
-          this.ctx.dom.titleFlash("A GARDEN FOR DAISY");
-          if (document.pointerLockElement === this.ctx.engine.domElement) document.exitPointerLock();
-        }
-        this.updateFlowerCrosshair();
-        this.updateProgressHud();
+        const outline = vase.getObjectByName(`daisy-placement-outline-${Number(vase.userData.daisyVaseSpot) + 1}`);
+        if (outline) outline.visible = false;
+        this.finishFlowerPlacement();
       } else if (target?.flower && !this.heldFlower) {
         const flower = target.flower;
         flower.updateMatrixWorld(true);
@@ -909,43 +902,59 @@ export class NicksHouseChapter {
 
   private readonly onContextMenu = (event: MouseEvent): void => event.preventDefault();
 
+  private finishFlowerPlacement(): void {
+    this.heldFlower = null;
+    this.flowerCount++;
+    if (this.flowerCount === FLOWER_SPOTS.length) {
+      this.phase = "complete";
+      this.endingElapsed = 0;
+      this.ctx.say("Nick's house is ready for Daisy. Gatsby's promised envelope is waiting inside.", 4.5, true);
+      this.ctx.dom.titleFlash("A GARDEN FOR DAISY");
+      if (document.pointerLockElement === this.ctx.engine.domElement) document.exitPointerLock();
+    }
+    this.updateFlowerCrosshair();
+    this.updateProgressHud();
+  }
+
   private raycastFlowerTarget(): { flower?: THREE.Group; spot?: FlowerSpot; vase?: THREE.Group } | null {
     const camera = this.ctx.camera;
     this.ctx.scene.updateMatrixWorld(true);
     camera.updateMatrixWorld(true);
     this.pointer.set(0, 0);
     this.raycaster.setFromCamera(this.pointer, camera);
+    const vases = this.vaseRaycastTargets.filter((vase) => !vase.userData.daisyPlaced);
     if (this.heldFlower) {
-      const targets = this.spots.filter((spot) => !spot.flower).map((spot) => spot.root);
-      for (const hit of this.raycaster.intersectObjects(targets, true)) {
+      const spotRoots = this.spots.filter((spot) => !spot.flower).map((spot) => spot.root);
+      const placementHits = [
+        ...this.raycaster.intersectObjects(spotRoots, true).map((hit) => ({ hit, kind: "spot" as const })),
+        ...this.raycaster.intersectObjects(vases, true).map((hit) => ({ hit, kind: "vase" as const })),
+      ].sort((a, b) => a.hit.distance - b.hit.distance);
+      for (const { hit, kind } of placementHits) {
         if (hit.distance > 24) break;
-        const spotIndex = this.findAncestorData<number>(hit.object, "daisyVaseSpot");
-        const spot = spotIndex === null ? undefined : this.spots[spotIndex];
-        if (spot && !spot.flower) return { spot };
+        const vaseIndex = this.findAncestorData<number>(hit.object, "daisyVaseSpot");
+        if (vaseIndex === null) continue;
+        if (kind === "spot") {
+          const spot = this.spots[vaseIndex];
+          if (spot && !spot.flower) return { spot };
+          continue;
+        }
+        const vase = vases.find((candidate) => candidate.userData.daisyVaseSpot === vaseIndex);
+        if (vase) return { flower: undefined, spot: undefined, vase: vase as THREE.Group };
       }
       return null;
     }
     const available = this.flowers.filter((flower) => flower.parent === this.gameRoot);
-    const vaseTargets = this.vaseRaycastTargets.filter((vase) => !vase.userData.daisyPlaced);
     const hits = [
       ...this.raycaster.intersectObjects(available, true).map((hit) => ({ hit, kind: "flower" as const })),
-      ...this.raycaster.intersectObjects(vaseTargets, true).map((hit) => ({ hit, kind: "vase" as const })),
+      ...this.raycaster.intersectObjects([...vases, ...this.spots.map((spot) => spot.root)], true).map((hit) => ({ hit, kind: "vase" as const })),
     ].sort((a, b) => a.hit.distance - b.hit.distance);
     for (const { hit, kind } of hits) {
       if (hit.distance > 24) break;
-      if (kind === "vase") {
-        const vaseIndex = this.findAncestorData<number>(hit.object, "daisyVaseSpot");
-        const vase = vaseIndex === null ? undefined : this.vaseGroup?.getObjectByName(`indoor-daisy-vase-${vaseIndex + 1}`);
-        if (vase && !vase.userData.daisyPlaced) {
-        const vaseGroup = vase as THREE.Group;
-        return { flower: undefined, vase: vaseGroup, spot: undefined };
-      }
-      if (kind === "flower") {
-        const flowerIndex = this.findAncestorData<number>(hit.object, "daisySourceIndex");
-        const flower = flowerIndex === null ? undefined : this.flowers[flowerIndex];
-        if (flower && flower.parent === this.gameRoot) {
-          return { flower: flower as THREE.Group, spot: undefined, vase: undefined };
-        }
+      if (kind === "vase") return null;
+      const flowerIndex = this.findAncestorData<number>(hit.object, "daisySourceIndex");
+      const flower = flowerIndex === null ? undefined : this.flowers[flowerIndex];
+      if (flower && flower.parent === this.gameRoot) {
+        return { flower: flower as THREE.Group, spot: undefined, vase: undefined };
       }
     }
     return null;

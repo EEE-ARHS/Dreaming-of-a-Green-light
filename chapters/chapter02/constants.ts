@@ -5,6 +5,15 @@ export const DOOR_HEIGHT = 2.3;
 export const THRESHOLD_Z = -ROOM_HALF - 0.45;
 export const CARRY_Y = 0.9;
 
+export const FLOWER_SPOTS: [number, number][] = [
+  [-5.3, 6.9],
+  [5.3, 6.9],
+  [-5.3, 10.6],
+  [5.3, 10.6],
+  [-5.3, 14.3],
+  [5.3, 14.3],
+];
+
 export interface BelongingSpec {
   id: string;
   name: string;
