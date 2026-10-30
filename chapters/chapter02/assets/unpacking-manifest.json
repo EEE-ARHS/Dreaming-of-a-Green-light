@@ -3,7 +3,7 @@
   "name": "NICK'S HOUSE",
   "blurb": "Nick has finally brought his things home to West Egg. Unpack the car, carry each belonging inside, and make the little house your own.",
   "command": "WELCOME HOME",
-  "how": "First-person · WASD / arrow keys to walk · IJKL look · E opens the trunk and picks up or sets down belongings · ESC for chapters",
+  "how": "First-person · WASD / arrow keys to walk · mouse or IJKL look · left click locks the mouse · E opens the trunk and picks up or sets down belongings · hold left click to drag belongings or doors · ESC for chapters",
   "models": {
     "format": "glb or gltf; keep source files in assets/3d/ and copy runtime files into the frontend public root",
     "house": { "path": null, "fit": { "targetSize": [8, 3, 8], "alignBottom": true } },

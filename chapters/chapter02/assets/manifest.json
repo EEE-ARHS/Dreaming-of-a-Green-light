@@ -3,7 +3,7 @@
   "name": "THE VISIT",
   "blurb": "Gatsby asks Nick to prepare his house for Daisy's visit. Mow the backyard and arrange the daisies he loves.",
   "command": "A GARDEN FOR DAISY",
-  "how": "First-person · WASD / arrow keys walk · IJKL look · Mow every row of the marked lawn · Click a daisy, then click an outlined vase · ESC for chapters",
+  "how": "First-person · WASD / arrow keys walk · mouse or IJKL look · Mow every row of the marked lawn · Left click a daisy, then left click an outlined vase · ESC for chapters",
   "models": {
     "format": "glb or gltf; keep source files in assets/3d/ and copy runtime files into the frontend public root",
     "house": { "path": null, "fit": { "targetSize": [8, 3, 8], "alignBottom": true } },

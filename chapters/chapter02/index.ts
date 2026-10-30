@@ -12,8 +12,9 @@ const FIELD_SIZE = 8;
 const FIELD_CELLS = 16;
 const FIELD_MIN_X = -FIELD_SIZE / 2;
 const FIELD_MIN_Z = 6.5;
+const VISIT_TEST_ACCESS = import.meta.env.DEV && typeof window !== "undefined" && new URLSearchParams(window.location.search).has("visitTest");
 const CELL_SIZE = FIELD_SIZE / FIELD_CELLS;
-const MOWING_BOUNDS = { minX: FIELD_MIN_X, maxX: FIELD_MIN_X + FIELD_SIZE, minZ: FIELD_MIN_Z - 1.5, maxZ: FIELD_MIN_Z + FIELD_SIZE + 0.5 };
+const MOWING_BOUNDS = { minX: FIELD_MIN_X - 1.25, maxX: FIELD_MIN_X + FIELD_SIZE + 1.25, minZ: FIELD_MIN_Z - 2, maxZ: FIELD_MIN_Z + FIELD_SIZE + 1.5 };
 const WALKING_BOUNDS = { minX: -6.1, maxX: 6.1, minZ: 4.8, maxZ: 17.2 };
 const FLOWER_SPOTS: [number, number][] = [
   [-5.3, 6], [5.3, 6],
@@ -130,6 +131,7 @@ export class NicksHouseChapter {
     camera.updateProjectionMatrix();
     this.ctx.say("Across the lawn, Gatsby's great house stood beside Nick's modest home.", 4.1, true);
 
+    if (VISIT_TEST_ACCESS) (window as unknown as { __visit?: unknown }).__visit = this;
     this.counter = crateCounter;
     this.counter.replaceChildren();
     this.counter.classList.add("show");
@@ -138,6 +140,7 @@ export class NicksHouseChapter {
     const canvas = this.ctx.engine.domElement;
     canvas.addEventListener("mousedown", this.onMouseDown);
     window.addEventListener("mousemove", this.onMouseMove);
+    document.addEventListener("pointerlockchange", this.onPointerLockChange);
     canvas.addEventListener("contextmenu", this.onContextMenu);
     canvas.style.cursor = "crosshair";
     this.ctx.dom.hud.classList.add("first-person-hud");
@@ -185,6 +188,9 @@ export class NicksHouseChapter {
     const canvas = this.ctx.engine.domElement;
     canvas.removeEventListener("mousedown", this.onMouseDown);
     window.removeEventListener("mousemove", this.onMouseMove);
+    document.removeEventListener("pointerlockchange", this.onPointerLockChange);
+    document.getElementById("crosshair")?.classList.remove("is-locked");
+    if (VISIT_TEST_ACCESS) delete (window as unknown as { __visit?: unknown }).__visit;
     canvas.removeEventListener("contextmenu", this.onContextMenu);
     if (document.pointerLockElement === canvas) document.exitPointerLock();
     canvas.style.cursor = "default";
@@ -255,7 +261,7 @@ export class NicksHouseChapter {
       camera.fov = 68;
       camera.updateProjectionMatrix();
       this.updatePlayerCamera();
-      this.ctx.say("Walk every row of the marked backyard to mow it all. Then click a daisy and an outlined vase.", 5, true);
+      this.ctx.say("Walk every row of the marked backyard to mow it all. Click once to steer the view with the mouse. Then click a daisy and an outlined vase.", 5, true);
     }
   }
 
@@ -543,7 +549,7 @@ export class NicksHouseChapter {
   }
 
   private updateProgressHud(): void {
-    if (!this.counter) {
+    if (!this.progressLabel) {
       this.counter = crateCounter;
       this.counter.replaceChildren();
       const panel = document.createElement("div");
@@ -561,7 +567,8 @@ export class NicksHouseChapter {
       this.counter.style.opacity = "1";
       this.progressLabel = label;
       this.progressFill = fill;
-    }      const percent = this.phase === "mowing"
+    }
+    const percent = this.phase === "mowing"
       ? Math.floor((this.mowedCount / this.mowed.length) * 100)
       : Math.floor((this.flowerCount / FLOWER_SPOTS.length) * 100);
     if (this.progressLabel) {
@@ -857,6 +864,10 @@ export class NicksHouseChapter {
     if ((this.phase !== "mowing" && this.phase !== "flowers") || (document.pointerLockElement !== canvas && event.target !== canvas)) return;
     this.playerYaw -= event.movementX * 0.0022;
     this.playerPitch = THREE.MathUtils.clamp(this.playerPitch - event.movementY * 0.0018, -0.95, 0.9);
+  };
+
+  private readonly onPointerLockChange = (): void => {
+    document.getElementById("crosshair")?.classList.toggle("is-locked", document.pointerLockElement === this.ctx.engine.domElement);
   };
 
   private readonly onContextMenu = (event: MouseEvent): void => event.preventDefault();

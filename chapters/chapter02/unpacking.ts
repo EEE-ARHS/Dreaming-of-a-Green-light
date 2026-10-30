@@ -337,6 +337,7 @@ export class NicksUnpackingChapter {
   };
 
   private readonly onPointerLockChange = (): void => {
+    document.getElementById("crosshair")?.classList.toggle("is-locked", document.pointerLockElement === this.ctx.engine.domElement);
     if (document.pointerLockElement !== this.ctx.engine.domElement && !this.pointerHeld) return;
     this.lastMouseX = window.innerWidth / 2;
     this.lastMouseY = window.innerHeight / 2;
@@ -886,7 +887,7 @@ export class NicksUnpackingChapter {
       this.syncMeshes();
       this.updateCounter();
       this.updateCamera();
-      this.ctx.say("WASD / arrows walk · IJKL look · E grabs the item under your crosshair or opens the trunk · press E again to set an item down · click and drag items with the crosshair.", 4.3, true);
+      this.ctx.say("WASD / arrows walk · mouse or IJKL look · left click to lock the mouse, then E grabs the item under your crosshair or opens the trunk · press E again to set it down · hold left click to drag items or doors.", 4.3, true);
     }
   }
 

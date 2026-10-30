@@ -88,11 +88,11 @@ function App() {
     const titleScene = root.querySelector<HTMLElement>(".title-scene-background");
     const chapterSelect = root.querySelector<HTMLElement>(".chapter-select");
     const heading = root.querySelector<HTMLElement>(".chapter-select-heading");
-    const dotGrid = root.querySelector<HTMLElement>(".chapter-dot-grid");
+    const cardGrid = root.querySelector<HTMLElement>(".chapter-card-grid");
     const close = root.querySelector<HTMLElement>(".chapter-select-close");
-    const dots = gsap.utils.toArray<HTMLElement>(".chapter-dot", root);
+    const cards = gsap.utils.toArray<HTMLElement>(".chapter-card", root);
 
-    gsap.set(root.querySelectorAll(".chapter-dot"), { autoAlpha: 1 });
+    gsap.set(cards, { autoAlpha: 1 });
 
     if (title) {
       gsap.killTweensOf([title, titleCopy, titleScene]);
@@ -116,20 +116,19 @@ function App() {
     }
 
     if (chapterSelect) {
-      gsap.killTweensOf([chapterSelect, heading, dotGrid, ...dots]);
+      gsap.killTweensOf([chapterSelect, heading, cardGrid, ...cards]);
       if (chapterSelectOpen) {
         gsap.set(chapterSelect, { visibility: "visible", pointerEvents: "auto" });
         if (reducedMotion) {
           gsap.set(chapterSelect, { autoAlpha: 1, filter: "none", scale: 1 });
           gsap.set(heading, { autoAlpha: 1, filter: "none", y: 0 });
-          gsap.set(dots, { autoAlpha: 1, filter: "none", y: 0, scale: 1 });
-          gsap.set(dots.map((dot) => dot.querySelector("span")).filter(Boolean), { scale: 1, backgroundColor: "rgba(255,255,255,.28)" });
+          gsap.set(cards, { autoAlpha: 1, filter: "none", y: 0, scale: 1 });
         } else {
           const reveal = gsap.timeline();
           reveal.fromTo(chapterSelect, { autoAlpha: 0, filter: "blur(8px)", scale: 1.015 }, { autoAlpha: 1, filter: "blur(0px)", scale: 1, duration: motion(1.15), ease: "power3.out" });
           if (heading) reveal.fromTo(heading, { autoAlpha: 0, filter: "blur(6px)", y: 12 }, { autoAlpha: 1, filter: "blur(0px)", y: 0, duration: motion(0.9), ease: "power3.out" }, 0.18);
-          if (dotGrid) reveal.fromTo(dotGrid, { autoAlpha: 0, filter: "blur(6px)", y: 12 }, { autoAlpha: 1, filter: "blur(0px)", y: 0, duration: motion(0.95), ease: "power3.out" }, 0.3);
-          if (dots.length) reveal.fromTo(dots, { scale: 0.72 }, { scale: 1, duration: motion(0.75), stagger: 0.055, ease: "back.out(1.5)" }, 0.42);
+          if (cardGrid) reveal.fromTo(cardGrid, { autoAlpha: 0, filter: "blur(6px)", y: 16 }, { autoAlpha: 1, filter: "blur(0px)", y: 0, duration: motion(0.95), ease: "power3.out" }, 0.3);
+          if (cards.length) reveal.fromTo(cards, { autoAlpha: 0, y: 20, scale: 0.97 }, { autoAlpha: 1, y: 0, scale: 1, duration: motion(0.7), stagger: 0.07, ease: "power3.out" }, 0.42);
         }
       } else {
         gsap.set(chapterSelect, { visibility: "visible", pointerEvents: "none" });
@@ -146,31 +145,6 @@ function App() {
     }
   }, { dependencies: [titleVisible, chapterSelectOpen, selectedChapter], scope: rootRef });
 
-  useGSAP(() => {
-    if (!chapterSelectOpen) return;
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const dots = gsap.utils.toArray<HTMLElement>(".chapter-dot span", rootRef.current);
-    const selectedDot = dots[chapterIndex];
-    gsap.to(dots, {
-      scale: 1,
-      backgroundColor: "rgba(255,255,255,.28)",
-      duration: reducedMotion ? 0.01 : 0.35,
-      ease: "power2.out",
-    });
-    if (selectedDot) {
-      gsap.fromTo(
-        selectedDot,
-        { scale: 0.75, backgroundColor: "rgba(255,255,255,.45)" },
-        {
-          scale: 1.45,
-          backgroundColor: "rgba(255,255,255,.95)",
-          duration: reducedMotion ? 0.01 : 0.55,
-          ease: reducedMotion ? "none" : "back.out(2)",
-        },
-      );
-    }
-  }, { dependencies: [chapterIndex, chapterSelectOpen], scope: rootRef });
-
   const { contextSafe } = useGSAP({ scope: rootRef });
   useEffect(() => {
     const root = rootRef.current;
@@ -180,7 +154,7 @@ function App() {
       const hovered = !disabled && target.matches(":hover");
       const focused = !disabled && target === document.activeElement;
       const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      if (target.matches(".chapter-dot, .chapter-select-close")) {
+      if (target.matches(".chapter-card, .chapter-select-close")) {
         gsap.set(target, { cursor: disabled ? "not-allowed" : "pointer", outline: "none", boxShadow: "none" });
         return;
       }
@@ -217,40 +191,18 @@ function App() {
         if (mutation.target instanceof HTMLButtonElement) applyButtonVisualState(mutation.target);
       }
     }));
-    const proximityGrid = root.querySelector<HTMLElement>(".chapter-dot-grid");
-    const dots = proximityGrid ? gsap.utils.toArray<HTMLElement>(".chapter-dot span", proximityGrid) : [];
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const radius = 120;
-    const scaleFactor = 1.8;
-    const scales = dots.map((dot) => gsap.quickTo(dot, "scale", { duration: reducedMotion ? 0.01 : 0.35, ease: "power3.out" }));
-    const onProximityMove = contextSafe((event: PointerEvent) => {
-      if (!proximityGrid || reducedMotion || event.pointerType === "touch") return;
-      const { clientX, clientY } = event;
-      dots.forEach((dot, index) => {
-        const bounds = dot.getBoundingClientRect();
-        const distance = Math.hypot(clientX - (bounds.left + bounds.width / 2), clientY - (bounds.top + bounds.height / 2));
-        const influence = gsap.utils.clamp(0, 1, 1 - distance / radius);
-        scales[index]?.(1 + influence * (scaleFactor - 1));
-      });
-    });
-    const resetProximity = contextSafe(() => scales.forEach((scale) => scale(1)));
     root.querySelectorAll<HTMLButtonElement>("button").forEach(applyButtonVisualState);
     disabledObserver.observe(root, { subtree: true, attributes: true, attributeFilter: ["disabled"] });
     root.addEventListener("pointerover", onPointerOver);
     root.addEventListener("pointerout", onPointerOut);
     root.addEventListener("focusin", onFocusChange);
     root.addEventListener("focusout", onFocusChange);
-    proximityGrid?.addEventListener("pointermove", onProximityMove);
-    proximityGrid?.addEventListener("pointerleave", resetProximity);
     return () => {
       disabledObserver.disconnect();
       root.removeEventListener("pointerover", onPointerOver);
       root.removeEventListener("pointerout", onPointerOut);
       root.removeEventListener("focusin", onFocusChange);
       root.removeEventListener("focusout", onFocusChange);
-      proximityGrid?.removeEventListener("pointermove", onProximityMove);
-      proximityGrid?.removeEventListener("pointerleave", resetProximity);
-      scales.forEach((scale) => scale.tween.kill());
     };
   }, [contextSafe]);
 
@@ -382,7 +334,7 @@ function App() {
       <div id="crosshair" aria-hidden="true" />
       <footer>
         <div className="chapter"><span className="chapter-no">CHAPTERS</span><span className="chapter-note">Silver-screen stories · Three.js</span></div>
-        <div className="keys">{selectedChapter === "nicksHouse" ? <><span><b>WASD / ↑↓←→</b> walk</span><span><b>I J K L</b> look</span><span><b>Walk the rows</b> mow the whole lawn</span><span><b>Left click</b> grab a daisy, then click an outlined vase</span><span><b>ESC</b> chapters</span></> : selectedChapter === "nicksHouseUnpacking" ? <><span><b>WASD / ↑↓←→</b> walk</span><span><b>I J K L</b> look</span><span><b>E</b> trunk / carry items</span><span><b>Hold left mouse</b> drag items / doors</span><span><b>ESC</b> chapters</span></> : hudKeys.map((entry) => <span key={`${entry.key}-${entry.label}`}><b>{entry.key}</b> {entry.label}</span>)}</div>
+        <div className="keys">{selectedChapter === "nicksHouse" ? <><span><b>WASD / ↑↓←→</b> walk</span><span><b>MOUSE / I J K L</b> look</span><span><b>Walk the rows</b> mow the whole lawn</span><span><b>Left click</b> grab a daisy, then click an outlined vase</span><span><b>ESC</b> chapters</span></> : selectedChapter === "nicksHouseUnpacking" ? <><span><b>WASD / ↑↓←→</b> walk</span><span><b>MOUSE / I J K L</b> look</span><span><b>E</b> trunk / carry items</span><span><b>Hold left mouse</b> drag items / doors</span><span><b>ESC</b> chapters</span></> : hudKeys.map((entry) => <span key={`${entry.key}-${entry.label}`}><b>{entry.key}</b> {entry.label}</span>)}</div>
       </footer>
     </main>
 
@@ -413,36 +365,45 @@ function App() {
     <section className="chapter-select" aria-label="Chapter select" aria-hidden={!chapterSelectOpen} onKeyDown={(event) => {
       if (event.key === "ArrowLeft") { event.preventDefault(); moveChapter(-1); }
       if (event.key === "ArrowRight") { event.preventDefault(); moveChapter(1); }
-      if (event.key === "ArrowUp") { event.preventDefault(); moveChapter(-4); }
-      if (event.key === "ArrowDown") { event.preventDefault(); moveChapter(4); }
+      if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+        event.preventDefault();
+        const rowSize = window.matchMedia("(max-width: 760px)").matches ? 2 : 3;
+        moveChapter(event.key === "ArrowUp" ? -rowSize : rowSize);
+      }
       if (event.key === "Escape" || event.key.toLowerCase() === "x") setChapterSelectOpen(false);
       if (event.key === "Enter" && !activeChapter.locked && !isLoadingChapter) chooseChapter(activeChapter.id);
     }}>
       <button type="button" className="chapter-select-close" aria-label="Back to title" onClick={() => setChapterSelectOpen(false)}>×</button>
       <header className="chapter-select-heading">
-        <h2>CHAPTER SELECT</h2>
+        <p className="chapter-select-kicker">THE GREAT GATSBY <i /> A STORY IN SIX CHAPTERS</p>
+        <h2>Choose where<br />the story begins.</h2>
       </header>
-      <div className="chapter-select-layout">
-        <div className="chapter-dot-grid" role="group" aria-label="Choose a chapter. Use arrow keys to browse.">
+      <div className="chapter-story-board">
+        <div className="chapter-card-grid" role="group" aria-label="Choose a chapter. Use arrow keys to browse.">
           {CHAPTER_OPTIONS.map((chapter, index) => {
             const active = index === chapterIndex;
             return <button
               type="button"
               key={chapter.id}
-              className={`chapter-dot${active ? " is-selected" : ""}${chapter.locked ? " is-locked" : " is-available"}`}
-              style={{ "--dot-index": index } as React.CSSProperties}
+              className={`chapter-card${active ? " is-selected" : ""}`}
               aria-pressed={active}
-              aria-label={`${chapter.slot}: ${chapter.name}${chapter.locked ? ", coming soon" : ", available"}`}
+              aria-label={`${chapter.slot}: ${chapter.name}, playable`}
               onClick={() => setChapterIndex(index)}
-            ><span aria-hidden="true" /></button>;
+            >
+              <span className="chapter-card-top"><span>{chapter.slot}</span><span className="chapter-card-status"><i /> PLAYABLE</span></span>
+              <span className="chapter-card-name">{chapter.name}</span>
+              <span className="chapter-card-description">{chapter.description}</span>
+              <span className="chapter-card-command">{chapter.command}</span>
+            </button>;
           })}
         </div>
-        <div className="chapter-dot-detail" aria-live="polite">
-          <p className="chapter-dot-meta"><span>{activeChapter.slot}</span><i /><span>{activeChapter.locked ? "COMING SOON" : "AVAILABLE"}</span></p>
-          <h3>{activeChapter.name}</h3>
-          <p className="chapter-dot-description">{activeChapter.description}</p>
-          <button type="button" className="chapter-dot-action" disabled={activeChapter.locked || isLoadingChapter} onClick={() => chooseChapter(activeChapter.id)}>
-            {activeChapter.locked ? "COMING SOON" : isLoadingChapter ? "PREPARING…" : "ENTER CHAPTER"} <b aria-hidden="true">→</b>
+        <div className="chapter-story-footer">
+          <div className="chapter-story-selected" aria-live="polite">
+            <span className="chapter-story-label">SELECTED STORY</span>
+            <span className="chapter-story-title">{activeChapter.slot} <i /> {activeChapter.name}</span>
+          </div>
+          <button type="button" className="chapter-enter-button" disabled={isLoadingChapter} onClick={() => chooseChapter(activeChapter.id)}>
+            {isLoadingChapter ? "PREPARING…" : "ENTER CHAPTER"} <b aria-hidden="true">→</b>
           </button>
         </div>
       </div>

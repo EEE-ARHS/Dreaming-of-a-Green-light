@@ -25,19 +25,6 @@ export interface ChapterCatalogEntry {
   hud?: ChapterHud;
 }
 
-function toRomanNumeral(value: number): string {
-  const numerals: [number, string][] = [[10, "X"], [9, "IX"], [5, "V"], [4, "IV"], [1, "I"]];
-  let remainder = value;
-  let result = "";
-  for (const [amount, numeral] of numerals) {
-    while (remainder >= amount) {
-      result += numeral;
-      remainder -= amount;
-    }
-  }
-  return result;
-}
-
 export const CHAPTER_CATALOG: ChapterCatalogEntry[] = [
   {
     id: "nicksHouseUnpacking",
@@ -54,29 +41,11 @@ export const CHAPTER_CATALOG: ChapterCatalogEntry[] = [
       sub: "CHAPTER I · WEST EGG",
       keys: [
         { key: "WASD / ARROWS", label: "walk" },
-        { key: "I J K L", label: "look" },
+        { key: "MOUSE / I J K L", label: "look" },
         { key: "E", label: "trunk / carry" },
         { key: "ESC", label: "chapters" },
       ],
     },
-  },
-  {
-    id: "chapter02",
-    slot: "CHAPTER II",
-    name: "????????",
-    blurb: "An undecided chapter is waiting in the wings.",
-    command: "...",
-    how: "This Gatsby chapter is not available yet.",
-    locked: true,
-  },
-  {
-    id: "chapter03",
-    slot: "CHAPTER III",
-    name: "????????",
-    blurb: "An undecided chapter is waiting in the wings.",
-    command: "...",
-    how: "This Gatsby chapter is not available yet.",
-    locked: true,
   },
   {
     id: crowdAtGatsbysManifest.id,
@@ -100,15 +69,6 @@ export const CHAPTER_CATALOG: ChapterCatalogEntry[] = [
     },
   },
   {
-    id: "chapter05",
-    slot: "CHAPTER V",
-    name: "????????",
-    blurb: "An undecided chapter is waiting in the wings.",
-    command: "...",
-    how: "This Gatsby chapter is not available yet.",
-    locked: true,
-  },
-  {
     id: "crashDrive",
     slot: crashDriveManifest.slot,
     name: crashDriveManifest.name,
@@ -117,41 +77,27 @@ export const CHAPTER_CATALOG: ChapterCatalogEntry[] = [
     how: crashDriveManifest.how,
     locked: false,
   },
-  ...Array.from({ length: 4 }, (_, index): ChapterCatalogEntry => {
-    const number = index + 7;
-    if (number === 7) {
-      return {
-        id: "nicksHouse",
-        slot: nicksHouseGardenManifest.slot,
-        name: nicksHouseGardenManifest.name,
-        blurb: nicksHouseGardenManifest.blurb,
-        command: nicksHouseGardenManifest.command,
-        how: nicksHouseGardenManifest.how,
-        locked: false,
-        scene: "west-egg",
-        firstPerson: true,
-        hud: {
-          brand: "THE VISIT",
-          sub: "CHAPTER VII · WEST EGG",
-          keys: [
-            { key: "WASD / ARROWS", label: "walk" },
-            { key: "I J K L", label: "look" },
-            { key: "LEFT CLICK", label: "pick up / place daisies" },
-            { key: "ESC", label: "chapters" },
-          ],
-        },
-      };
-    }
-    return {
-      id: `chapter${String(number).padStart(2, "0")}`,
-      slot: `CHAPTER ${toRomanNumeral(number)}`,
-      name: "????????",
-      blurb: "An undecided chapter is waiting in the wings.",
-      command: "...",
-      how: "This Gatsby chapter is not available yet.",
-      locked: true,
-    };
-  }),
+  {
+    id: "nicksHouse",
+    slot: nicksHouseGardenManifest.slot,
+    name: nicksHouseGardenManifest.name,
+    blurb: nicksHouseGardenManifest.blurb,
+    command: nicksHouseGardenManifest.command,
+    how: nicksHouseGardenManifest.how,
+    locked: false,
+    scene: "west-egg",
+    firstPerson: true,
+    hud: {
+      brand: "THE VISIT",
+      sub: "CHAPTER VII · WEST EGG",
+      keys: [
+        { key: "WASD / ARROWS", label: "walk" },
+        { key: "MOUSE / I J K L", label: "look" },
+        { key: "LEFT CLICK", label: "pick up / place daisies" },
+        { key: "ESC", label: "chapters" },
+      ],
+    },
+  },
   {
     id: "boatsAgainst",
     slot: boatsAgainstManifest.slot,

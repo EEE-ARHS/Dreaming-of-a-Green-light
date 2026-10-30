@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url";
-import { defineConfig } from "vite";
+import { defineConfig } from "vitest/config";
 
 const threeEntry = fileURLToPath(new URL("./node_modules/three/build/three.module.js", import.meta.url));
 
@@ -23,5 +23,9 @@ export default defineConfig({
     fs: {
       allow: [fileURLToPath(new URL("../", import.meta.url))],
     },
+  },
+  test: {
+    environment: "jsdom",
+    setupFiles: ["./vitest.setup.ts"],
   },
 });

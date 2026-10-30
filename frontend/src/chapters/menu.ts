@@ -5,6 +5,7 @@ export const CHAPTER_OPTIONS = CHAPTER_CATALOG.map((chapter) => ({
   slot: chapter.slot,
   name: chapter.name,
   description: chapter.blurb,
+  command: chapter.command,
   locked: chapter.locked ?? true,
   firstPerson: chapter.firstPerson ?? false,
   hud: chapter.hud,
